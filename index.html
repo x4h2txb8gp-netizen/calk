@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Калькулятор влажности — два выпадающих списка</title>
+  <!-- Подключаем внешний CSS -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ЕДИНСТВЕННЫЙ БЛОК С ДВУМЯ ВЫПАДАЮЩИМИ СПИСКАМИ -->
+<div class="calculator-container">
+  <div class="calculator-block">
+    <div class="block-head">
+      <h2>Калькулятор параметров влажности</h2>
+    </div>
+
+    <!-- ДВА ВЫПАДАЮЩИХ СПИСКА: ИЗ ЧЕГО -> ВО ЧТО -->
+    <div class="direction-row">
+      <div class="input-group">
+        <label>Из чего:</label>
+        <select id="fromSelect" onchange="handleFromChange()">
+          <option value="RH">Относительная влажность</option>
+          <option value="abs">Абсолютная влажность</option>
+          <option value="mix">Влагосодержание</option>
+          <option value="dew">Точка росы</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Во что:</label>
+        <select id="toSelect" onchange="handleToChange()">
+          <option value="abs">Абсолютная влажность</option>
+          <option value="mix">Влагосодержание</option>
+          <option value="dew">Точка росы</option>
+          <option value="RH">Относительная влажность</option>
+        </select>
+      </div>
+    </div>
+    <p id="directionWarning" class="warning-message"></p>
+
+    <!-- ДИНАМИЧЕСКИЕ ПОЛЯ (заполняются через JS) -->
+    <div id="dynamicInputs"></div>
+
+    <!-- ТОЧНОСТЬ -->
+    <div class="input-group">
+      <label>Точность вычисления</label>
+      <div class="stepper">
+        <button onclick="changePrecision(-1)">−</button>
+        <span id="precisionVal">5</span>
+        <button onclick="changePrecision(1)">+</button>
+      </div>
+    </div>
+
+    <button class="calc-btn" id="calculateBtn" onclick="calculate()">РАССЧИТАТЬ</button>
+
+    <!-- РЕЗУЛЬТАТ -->
+    <div class="results" id="resultsBlock">
+      <p id="resultLabel">Результат: <span id="resultValue">—</span></p>
+    </div>
+  </div>
+</div>
+
+<!-- Подключаем внешний JavaScript -->
+<script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+/* ==== styles.css ==== */
+body {
+  font-family: 'Roboto', sans-serif;
+  background: #f2f2f2;
+  margin: 0;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.block-head {
+  background-color: #0f5c8d;
+}
+
+.calculator-container {
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto 30px auto;
+  padding: 10px;
+}
+
+.calculator-block {
+  background: #fff;
+  padding: 25px;
+  border-radius: 4px;
+  border: 0.5px dashed #2a63dc;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.calculator-block h2 {
+  font-size: 20px;
+  margin-bottom: 20px;
+  color: white;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+}
+
+.input-group label {
+  font-size: 14px;
+  margin-bottom: 5px;
+  color: #555;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stepper button {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: #0f5c8d;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.stepper button:hover {
+  background: #0a456b;
+}
+
+#precisionVal {
+  font-size: 18px;
+  min-width: 30px;
+  text-align: center;
+  font-weight: bold;
+  color: #333;
+}
+
+.input-group input, .input-group select {
+  font-size: 14px;
+  padding: 8px 10px;
+  border: none;
+  border-bottom: 1px solid #414958;
+  background: transparent;
+  outline: none;
+}
+
+/* Стиль для заблокированной кнопки */
+.calc-btn:disabled {
+  background-color: #a0b8cc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.calc-btn:disabled:hover {
+  background-color: #a0b8cc;
+}
+
+.slider-group input[type=range] {
+  width: 100%;
+  margin-top: 5px;
+}
+
+.calc-btn {
+  background-color: #0f5c8d;
+  color: #fff;
+  border: none;
+  padding: 12px 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s;
+  margin-top: 5px;
+  width: 100%;
+}
+
+.calc-btn:hover:not(:disabled) {
+  background-color: #0a456b;
+}
+
+.results {
+  margin-top: 20px;
+  background: #f8faff;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border-left: 4px solid #0f5c8d;
+}
+
+.results p {
+  margin: 8px 0;
+  font-size: 15px;
+  color: #1a2639;
+}
+
+.results span {
+  font-weight: 700;
+  color: #0f5c8d;
+  background: #e4edf5;
+  padding: 3px 8px;
+  border-radius: 20px;
+  margin-left: 8px;
+}
+
+.direction-row {
+  display: flex;
+  gap: 15px;
+  align-items: flex-end;
+}
+.direction-row .input-group {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+/* Сообщение об ошибке выбора */
+.warning-message {
+  color: #b33;
+  font-size: 13px;
+  margin-top: 5px;
+  margin-bottom: 0;
+  min-height: 20px;
+}
