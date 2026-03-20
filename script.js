@@ -1,311 +1,198 @@
-// ==== script.js ====
+// script.js
+// ========== КОНСТАНТЫ ==========
+const Rv = 461.5;
+const MAGNUS_A = 6.112;
+const MAGNUS_B = 17.62;
+const MAGNUS_C = 243.12;
+const mmHg2hPa = 1.33322;
+const MIX_FACTOR = 622;
 
-// Точность
-let precision = 5;
+let prec = 5;
+let vals = { rh: "60", abs: "0.0138", mix: "10", dew: "10", temp: "25", press: "760" };
 
-// Хранилище значений полей
-let fieldValues = {
-  rh: '60',
-  abs: '0.0138',
-  mix: '10',
-  dew: '10',
-  temp: '25',
-  pressure: '760'
-};
+// ========== ФОРМУЛЫ ==========
+function es(T) { return MAGNUS_A * Math.exp((MAGNUS_B * T) / (MAGNUS_C + T)); }
+function absFromRH(RH, T) { let e_hPa = (RH / 100) * es(T); return (e_hPa * 100) / (Rv * (T + 273.15)); }
+function RHFromAbs(A, T) { let e_Pa = A * Rv * (T + 273.15); return ((e_Pa / 100) / es(T)) * 100; }
+function mixFromRH(RH, T, P) { let e = (RH / 100) * es(T), P_hPa = P * mmHg2hPa; return P_hPa <= e ? Infinity : MIX_FACTOR * e / (P_hPa - e); }
+function RHFromMix(mix, T, P) { let P_hPa = P * mmHg2hPa, e = (mix * P_hPa) / (MIX_FACTOR + mix); return (e / es(T)) * 100; }
+function dewFromRH(RH, T) { if (RH <= 0) return -Infinity; let e = (RH / 100) * es(T), ln = Math.log(e / MAGNUS_A); return (MAGNUS_C * ln) / (MAGNUS_B - ln); }
+function RHFromDew(dew, T) { return (es(dew) / es(T)) * 100; }
+function absFromDew(dew, T) { return absFromRH(RHFromDew(dew, T), T); }
+function mixFromDew(dew, T, P) { return mixFromRH(RHFromDew(dew, T), T, P); }
+function dewFromAbs(A, T) { let e = A * Rv * (T + 273.15) / 100, ln = Math.log(e / MAGNUS_A); return (MAGNUS_C * ln) / (MAGNUS_B - ln); }
+function dewFromMix(mix, T, P) { return dewFromRH(RHFromMix(mix, T, P), T); }
+function maxAbs(T) { return absFromRH(100, T); }
 
-// Изменение точности
-window.changePrecision = function(step) {
-  precision += step;
-  if (precision < 0) precision = 0;
-  if (precision > 10) precision = 10;
-  document.getElementById('precisionVal').innerText = precision;
-};
-
-// Проверка и блокировка при одинаковых значениях
-function validateDirection() {
-  const from = document.getElementById('fromSelect').value;
-  const to = document.getElementById('toSelect').value;
-  const btn = document.getElementById('calculateBtn');
-  const warning = document.getElementById('directionWarning');
-  
-  if (from === to) {
-    btn.disabled = true;
-    warning.innerText = '❌ Нельзя пересчитывать величину саму в себя. Выберите разные параметры.';
-    return false;
-  } else {
-    btn.disabled = false;
-    warning.innerText = '';
-    return true;
-  }
+// ========== ЕДИНИЦЫ ИЗМЕРЕНИЯ ==========
+function getUnit(to) {
+  const units = { 'RH': '%', 'abs': 'кг/м³', 'mix': 'г/кг', 'dew': '°C' };
+  return units[to] || '';
 }
-
-// Обработчик изменения "Из чего"
-window.handleFromChange = function() {
-  const from = document.getElementById('fromSelect').value;
-  const toSelect = document.getElementById('toSelect');
-  
-  // Перебираем опции "во что" и убираем disabled у всех, потом дисаблим совпадающую
-  for (let option of toSelect.options) {
-    option.disabled = false;
-  }
-  for (let option of toSelect.options) {
-    if (option.value === from) {
-      option.disabled = true;
-      // Если текущее to совпадает с from, переключаем на первое доступное
-      if (toSelect.value === from) {
-        for (let opt of toSelect.options) {
-          if (!opt.disabled) {
-            toSelect.value = opt.value;
-            break;
-          }
-        }
-      }
-      break;
-    }
-  }
-  
-  updateInputFields();
-  validateDirection();
-};
-
-// Обработчик изменения "Во что"
-window.handleToChange = function() {
-  const to = document.getElementById('toSelect').value;
-  const fromSelect = document.getElementById('fromSelect');
-  
-  // Перебираем опции "из чего" и убираем disabled, потом дисаблим совпадающую
-  for (let option of fromSelect.options) {
-    option.disabled = false;
-  }
-  for (let option of fromSelect.options) {
-    if (option.value === to) {
-      option.disabled = true;
-      // Если текущее from совпадает с to, переключаем на первое доступное
-      if (fromSelect.value === to) {
-        for (let opt of fromSelect.options) {
-          if (!opt.disabled) {
-            fromSelect.value = opt.value;
-            break;
-          }
-        }
-      }
-      break;
-    }
-  }
-  
-  updateInputFields();
-  validateDirection();
-};
-
-// Обновление полей ввода
-window.updateInputFields = function() {
-  const from = document.getElementById('fromSelect').value;
-  const container = document.getElementById('dynamicInputs');
-  
-  // Сохраняем текущие значения
-  const inputs = container.querySelectorAll('input');
-  inputs.forEach(input => {
-    if (input.id === 'tempInput') fieldValues.temp = input.value;
-    else if (input.id === 'pressureInput') fieldValues.pressure = input.value;
-    else if (input.id === 'rhInput') fieldValues.rh = input.value;
-    else if (input.id === 'absInput') fieldValues.abs = input.value;
-    else if (input.id === 'mixInput') fieldValues.mix = input.value;
-    else if (input.id === 'dewInput') fieldValues.dew = input.value;
-  });
-
-  // Генерация полей
-  let html = `
-    <div class="input-group">
-      <label>Температура, °C</label>
-      <input type="number" id="tempInput" value="${fieldValues.temp}">
-    </div>
-    <div class="input-group">
-      <label>Атмосферное давление, мм рт.ст.</label>
-      <input type="number" id="pressureInput" value="${fieldValues.pressure}">
-    </div>
-  `;
-
-  if (from === 'RH') {
-    html += `
-      <div class="input-group">
-        <label>Относительная влажность, %</label>
-        <input type="number" id="rhInput" step="0.1" value="${fieldValues.rh}">
-      </div>
-    `;
-  } else if (from === 'abs') {
-    html += `
-      <div class="input-group">
-        <label>Абсолютная влажность, кг/м³</label>
-        <input type="number" id="absInput" step="0.0001" value="${fieldValues.abs}">
-      </div>
-    `;
-  } else if (from === 'mix') {
-    html += `
-      <div class="input-group">
-        <label>Влагосодержание, г/кг сух. возд.</label>
-        <input type="number" id="mixInput" step="0.01" value="${fieldValues.mix}">
-      </div>
-    `;
-  } else if (from === 'dew') {
-    html += `
-      <div class="input-group">
-        <label>Точка росы, °C</label>
-        <input type="number" id="dewInput" step="0.1" value="${fieldValues.dew}">
-      </div>
-    `;
-  }
-
-  container.innerHTML = html;
-
-  // Обновляем подпись результата
-  const to = document.getElementById('toSelect').value;
-  updateResultLabel(to);
-};
 
 function updateResultLabel(to) {
-  const labelMap = {
-    'RH': 'Относительная влажность, %',
-    'abs': 'Абсолютная влажность, кг/м³',
-    'mix': 'Влагосодержание, г/кг',
-    'dew': 'Точка росы, °C'
-  };
-  document.getElementById('resultLabel').innerHTML = `${labelMap[to]}: <span id="resultValue">—</span>`;
+  const labels = { 'RH': 'Относительная влажность', 'abs': 'Абсолютная влажность', 'mix': 'Влагосодержание', 'dew': 'Точка росы' };
+  document.getElementById('resLabel').innerHTML = labels[to] || 'Результат';
+  document.getElementById('resUnit').innerHTML = getUnit(to);
 }
 
-// Вспомогательные функции
-function esFromT(T) {
-  return 6.112 * Math.exp((17.62 * T) / (243.12 + T));
+// ========== ИЗМЕНЕНИЕ ТОЧНОСТИ ==========
+function changePrec(s) {
+  prec += s;
+  if (prec < 0) prec = 0;
+  if (prec > 10) prec = 10;
+  document.getElementById('prec').innerText = prec;
 }
 
-function absFromRH_RH_T(RH, T) {
-  const es = esFromT(T);
-  const e = (RH / 100) * es;
-  const e_Pa = e * 100;
-  const Rv = 461.5;
-  const Tk = T + 273.15;
-  return e_Pa / (Rv * Tk);
+// ========== UI ==========
+function clearErr() {
+  document.querySelectorAll('.input-group input').forEach(i => i.classList.remove('error'));
+  document.querySelectorAll('.err-msg').forEach(e => e.remove());
 }
-
-function RHFromAbs_abs_T(abs, T) {
-  const es = esFromT(T);
-  const e = abs * (T + 273.15) / 216.7;
-  return (e / es) * 100;
-}
-
-function mixFromRH_RH_T_P(RH, T, P_mmHg) {
-  const es = esFromT(T);
-  const e = (RH / 100) * es;
-  const P_hPa = P_mmHg * 1.33322;
-  return 622 * e / (P_hPa - e);
-}
-
-function RHFromMix_mix_T_P(mix, T, P_mmHg) {
-  const P_hPa = P_mmHg * 1.33322;
-  const e = (mix * P_hPa) / (622 + mix);
-  const es = esFromT(T);
-  return (e / es) * 100;
-}
-
-function dewFromRH_RH_T(RH, T) {
-  const es = esFromT(T);
-  const e = (RH / 100) * es;
-  const ln = Math.log(e / 6.112);
-  return (243.12 * ln) / (17.62 - ln);
-}
-
-function RHFromDew_dew_T(dew, T) {
-  const e = esFromT(dew);
-  const es = esFromT(T);
-  return (e / es) * 100;
-}
-
-function absFromDew_dew_T(dew, T) {
-  const RH = RHFromDew_dew_T(dew, T);
-  return absFromRH_RH_T(RH, T);
-}
-
-function mixFromDew_dew_T_P(dew, T, P_mmHg) {
-  const RH = RHFromDew_dew_T(dew, T);
-  return mixFromRH_RH_T_P(RH, T, P_mmHg);
-}
-
-function dewFromAbs_abs_T(abs, T) {
-  const es = esFromT(T);
-  const e = abs * (T + 273.15) / 216.7;
-  const ln = Math.log(e / 6.112);
-  return (243.12 * ln) / (17.62 - ln);
-}
-
-function dewFromMix_mix_T_P(mix, T, P_mmHg) {
-  const RH = RHFromMix_mix_T_P(mix, T, P_mmHg);
-  return dewFromRH_RH_T(RH, T);
-}
-
-// ОСНОВНАЯ ФУНКЦИЯ РАСЧЁТА
-window.calculate = function() {
-  const from = document.getElementById('fromSelect').value;
-  const to = document.getElementById('toSelect').value;
-  const span = document.getElementById('resultValue');
-  
-  // Дополнительная проверка
-  if (from === to) {
-    alert('Ошибка: выберите разные параметры для пересчёта');
-    return;
+function showErr(id, msg) {
+  let i = document.getElementById(id);
+  if (i) {
+    i.classList.add('error');
+    let p = i.closest('.input-group'), old = p.querySelector('.err-msg');
+    if (old) old.remove();
+    let d = document.createElement('div');
+    d.className = 'err-msg';
+    d.innerText = msg;
+    p.appendChild(d);
   }
-  
+}
+function valNum(id, min, max, name) {
+  let i = document.getElementById(id);
+  if (!i) return null;
+  let v = parseFloat(i.value);
+  if (isNaN(v)) { showErr(id, `❌ ${name} - число`); return null; }
+  if (v < min || v > max) { showErr(id, `❌ ${name} от ${min} до ${max}`); return null; }
+  return v;
+}
+function valT() { return valNum('temp', -100, 100, 'Температура'); }
+function valP() { return valNum('press', 100, 1100, 'Давление'); }
+function valRH() { return valNum('rh', 0, 100, 'Влажность'); }
+function valAbs() { return valNum('abs', 0, 2, 'Абс.влажность'); }
+function valMix() { return valNum('mix', 0, 1000, 'Влагосодержание'); }
+function valDew() { return valNum('dew', -100, 100, 'Точка росы'); }
+
+function validateDir() {
+  let from = document.getElementById('from').value, to = document.getElementById('to').value;
+  let btn = document.getElementById('calcBtn'), warn = document.getElementById('dirWarn');
+  if (!from || !to) {
+    btn.disabled = true; btn.innerText = '➡️ Выберите направление';
+    warn.style.display = 'block'; warn.innerText = '⚠️ Выберите оба параметра';
+    return false;
+  }
+  if (from === to) {
+    btn.disabled = true; btn.innerText = '⛔ Нельзя в себя';
+    warn.style.display = 'block'; warn.innerText = '❌ Нельзя пересчитывать саму величину';
+    return false;
+  }
+  btn.disabled = false; btn.innerText = '🧮 Рассчитать';
+  warn.style.display = 'none';
+  return true;
+}
+
+function realCheck() {
+  let from = document.getElementById('from').value, to = document.getElementById('to').value;
+  if (!from || !to) return;
+  let t = parseFloat(document.getElementById('temp')?.value), p = parseFloat(document.getElementById('press')?.value);
+  if (isNaN(t) || isNaN(p)) return;
+  if (from === 'dew') {
+    let d = parseFloat(document.getElementById('dew')?.value);
+    if (!isNaN(d) && d > t) showErr('dew', `⚠️ Точка росы выше температуры → RH>100%`);
+  }
+  if (from === 'abs') {
+    let a = parseFloat(document.getElementById('abs')?.value);
+    if (!isNaN(a)) { let mx = maxAbs(t); if (a > mx) showErr('abs', `❌ Превышен максимум (${mx.toFixed(4)} кг/м³)`); }
+  }
+  if (from === 'mix') {
+    let m = parseFloat(document.getElementById('mix')?.value);
+    if (!isNaN(m)) { let mx = mixFromRH(100, t, p); if (m > mx && isFinite(mx)) showErr('mix', `⚠️ Выше ${mx.toFixed(1)} г/кг → RH>100%`); }
+  }
+  if (t < -40) showErr('temp', `⚠️ Ниже -40°C возможна погрешность`);
+  if (from === 'RH' && to === 'dew') {
+    let rh = parseFloat(document.getElementById('rh')?.value);
+    if (rh === 0) showErr('rh', `❌ При 0% точка росы не определена`);
+  }
+}
+
+function update() {
+  let from = document.getElementById('from').value, to = document.getElementById('to').value, cont = document.getElementById('inputs');
+  let inputs = cont.querySelectorAll('input');
+  inputs.forEach(i => {
+    if (i.id === 'temp') vals.temp = i.value;
+    else if (i.id === 'press') vals.press = i.value;
+    else if (i.id === 'rh') vals.rh = i.value;
+    else if (i.id === 'abs') vals.abs = i.value;
+    else if (i.id === 'mix') vals.mix = i.value;
+    else if (i.id === 'dew') vals.dew = i.value;
+  });
+  if (!from) { cont.innerHTML = ''; updateResultLabel(to); validateDir(); return; }
+  let html = `<div class="input-group"><label>🌡️ Температура, °C</label><input type="number" id="temp" value="${vals.temp}" step="0.1"></div>
+              <div class="input-group"><label>📊 Давление, мм рт.ст.</label><input type="number" id="press" value="${vals.press}" step="0.1"></div>`;
+  if (from === 'RH') html += `<div class="input-group"><label>💧 Отн.влажность, %</label><input type="number" id="rh" value="${vals.rh}" step="0.1"></div>`;
+  else if (from === 'abs') html += `<div class="input-group"><label>💨 Абс.влажность, кг/м³</label><input type="number" id="abs" value="${vals.abs}" step="0.0001"></div>`;
+  else if (from === 'mix') html += `<div class="input-group"><label>💨 Влагосодержание, г/кг</label><input type="number" id="mix" value="${vals.mix}" step="0.01"></div>`;
+  else if (from === 'dew') html += `<div class="input-group"><label>❄️ Точка росы, °C</label><input type="number" id="dew" value="${vals.dew}" step="0.1"></div>`;
+  cont.innerHTML = html;
+  document.querySelectorAll('#inputs input').forEach(i => { i.addEventListener('input', () => { clearErr(); realCheck(); }); });
+  realCheck();
+  updateResultLabel(to);
+  validateDir();
+}
+
+function calc() {
+  clearErr();
+  if (!validateDir()) return;
+  let from = document.getElementById('from').value, to = document.getElementById('to').value;
+  let span = document.getElementById('resVal');
   try {
-    const T = parseFloat(document.getElementById('tempInput').value);
-    const P = parseFloat(document.getElementById('pressureInput').value);
-    if (isNaN(T) || isNaN(P)) throw new Error('Заполните температуру и давление');
-
-    let result;
-
+    let T = valT(); if (T === null) return;
+    let P = valP(); if (P === null) return;
+    let res;
     if (from === 'RH') {
-      const RH = parseFloat(document.getElementById('rhInput').value);
-      if (isNaN(RH)) throw new Error('Введите относительную влажность');
-      if (to === 'abs') result = absFromRH_RH_T(RH, T);
-      else if (to === 'mix') result = mixFromRH_RH_T_P(RH, T, P);
-      else if (to === 'dew') result = dewFromRH_RH_T(RH, T);
+      let rh = valRH(); if (rh === null) return;
+      if (to === 'abs') res = absFromRH(rh, T);
+      else if (to === 'mix') { res = mixFromRH(rh, T, P); if (res === Infinity) throw new Error('Давление слишком низкое'); }
+      else if (to === 'dew') { if (rh === 0) throw new Error('При RH=0% точка росы не определена'); res = dewFromRH(rh, T); }
     }
     else if (from === 'abs') {
-      const abs = parseFloat(document.getElementById('absInput').value);
-      if (isNaN(abs)) throw new Error('Введите абсолютную влажность');
-      if (to === 'RH') result = RHFromAbs_abs_T(abs, T);
-      else if (to === 'mix') {
-        const RH = RHFromAbs_abs_T(abs, T);
-        result = mixFromRH_RH_T_P(RH, T, P);
-      }
-      else if (to === 'dew') result = dewFromAbs_abs_T(abs, T);
+      let A = valAbs(); if (A === null) return;
+      let mx = maxAbs(T); if (A > mx) throw new Error(`Превышен максимум (${mx.toFixed(4)} кг/м³)`);
+      if (to === 'RH') res = RHFromAbs(A, T);
+      else if (to === 'mix') res = mixFromRH(RHFromAbs(A, T), T, P);
+      else if (to === 'dew') res = dewFromAbs(A, T);
     }
     else if (from === 'mix') {
-      const mix = parseFloat(document.getElementById('mixInput').value);
-      if (isNaN(mix)) throw new Error('Введите влагосодержание');
-      if (to === 'RH') result = RHFromMix_mix_T_P(mix, T, P);
-      else if (to === 'abs') {
-        const RH = RHFromMix_mix_T_P(mix, T, P);
-        result = absFromRH_RH_T(RH, T);
-      }
-      else if (to === 'dew') result = dewFromMix_mix_T_P(mix, T, P);
+      let mix = valMix(); if (mix === null) return;
+      let mx = mixFromRH(100, T, P); if (mix > mx && isFinite(mx)) throw new Error(`Превышен максимум (${mx.toFixed(1)} г/кг)`);
+      if (to === 'RH') res = RHFromMix(mix, T, P);
+      else if (to === 'abs') res = absFromRH(RHFromMix(mix, T, P), T);
+      else if (to === 'dew') res = dewFromMix(mix, T, P);
     }
     else if (from === 'dew') {
-      const dew = parseFloat(document.getElementById('dewInput').value);
-      if (isNaN(dew)) throw new Error('Введите точку росы');
-      if (to === 'RH') result = RHFromDew_dew_T(dew, T);
-      else if (to === 'abs') result = absFromDew_dew_T(dew, T);
-      else if (to === 'mix') result = mixFromDew_dew_T_P(dew, T, P);
+      let dew = valDew(); if (dew === null) return;
+      if (dew > T) throw new Error(`Точка росы (${dew}°C) выше температуры → RH>100%`);
+      if (to === 'RH') res = RHFromDew(dew, T);
+      else if (to === 'abs') res = absFromDew(dew, T);
+      else if (to === 'mix') res = mixFromDew(dew, T, P);
     }
+    if (res === undefined) throw new Error('Ошибка');
+    if (to === 'RH' && (res < 0 || res > 100)) throw new Error(`RH вне диапазона (${res.toFixed(1)}%)`);
+    if (to === 'abs' && res < 0) throw new Error('Абс.влажность не может быть отрицательной');
+    if (to === 'dew' && !isFinite(res)) throw new Error('Точка росы не определена');
+    span.innerText = res.toFixed(prec);
+    document.getElementById('resUnit').innerHTML = getUnit(to);
+  } catch (e) { alert('❌ ' + e.message); span.innerText = '—'; document.getElementById('resUnit').innerHTML = ''; }
+}
 
-    if (result === undefined) throw new Error('Не удалось вычислить');
-    span.innerText = result.toFixed(precision);
-
-  } catch (error) {
-    alert(error.message || 'Ошибка ввода');
-  }
-};
-
-// Инициализация
-window.onload = function() {
-  document.getElementById('fromSelect').value = 'RH';
-  document.getElementById('toSelect').value = 'abs';
-  handleFromChange();  // настраивает disabled опции и обновляет поля
+window.onload = () => {
+  document.getElementById('from').value = '';
+  document.getElementById('to').value = '';
+  document.getElementById('from').onchange = update;
+  document.getElementById('to').onchange = update;
+  update();
+  document.getElementById('calcBtn').disabled = true;
 };
