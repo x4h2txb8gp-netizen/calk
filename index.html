@@ -2,25 +2,21 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Калькулятор влажности — два выпадающих списка</title>
-  <!-- Подключаем внешний CSS -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Калькулятор влажности</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<div class="calc">
+  <div class="card">
+    <div class="head"><h2>Калькулятор влажности</h2></div>
+    <div class="info">⚡ Выберите направление расчёта</div>
 
-<!-- ЕДИНСТВЕННЫЙ БЛОК С ДВУМЯ ВЫПАДАЮЩИМИ СПИСКАМИ -->
-<div class="calculator-container">
-  <div class="calculator-block">
-    <div class="block-head">
-      <h2>Калькулятор параметров влажности</h2>
-    </div>
-
-    <!-- ДВА ВЫПАДАЮЩИХ СПИСКА: ИЗ ЧЕГО -> ВО ЧТО -->
-    <div class="direction-row">
+    <div class="row">
       <div class="input-group">
         <label>Из чего:</label>
-        <select id="fromSelect" onchange="handleFromChange()">
+        <select id="from" onchange="update()">
+          <option value="">— выберите —</option>
           <option value="RH">Относительная влажность</option>
           <option value="abs">Абсолютная влажность</option>
           <option value="mix">Влагосодержание</option>
@@ -29,39 +25,38 @@
       </div>
       <div class="input-group">
         <label>Во что:</label>
-        <select id="toSelect" onchange="handleToChange()">
+        <select id="to" onchange="update()">
+          <option value="">— выберите —</option>
+          <option value="RH">Относительная влажность</option>
           <option value="abs">Абсолютная влажность</option>
           <option value="mix">Влагосодержание</option>
           <option value="dew">Точка росы</option>
-          <option value="RH">Относительная влажность</option>
         </select>
       </div>
     </div>
-    <p id="directionWarning" class="warning-message"></p>
+    <div id="dirWarn" class="warning" style="display:none"></div>
 
-    <!-- ДИНАМИЧЕСКИЕ ПОЛЯ (заполняются через JS) -->
-    <div id="dynamicInputs"></div>
+    <div id="inputs"></div>
 
-    <!-- ТОЧНОСТЬ -->
     <div class="input-group">
-      <label>Точность вычисления</label>
+      <label>Точность (знаков после запятой)</label>
       <div class="stepper">
-        <button onclick="changePrecision(-1)">−</button>
-        <span id="precisionVal">5</span>
-        <button onclick="changePrecision(1)">+</button>
+        <button onclick="changePrec(-1)">−</button>
+        <span id="prec">5</span>
+        <button onclick="changePrec(1)">+</button>
       </div>
     </div>
 
-    <button class="calc-btn" id="calculateBtn" onclick="calculate()">РАССЧИТАТЬ</button>
+    <button class="btn" id="calcBtn" onclick="calc()" disabled>➡️ Выберите направление</button>
 
-    <!-- РЕЗУЛЬТАТ -->
-    <div class="results" id="resultsBlock">
-      <p id="resultLabel">Результат: <span id="resultValue">—</span></p>
+    <div class="result">
+      <p id="resLabel">Результат:</p>
+      <div class="result-value" id="resVal">—</div>
+      <div class="result-unit" id="resUnit"></div>
     </div>
   </div>
 </div>
 
-<!-- Подключаем внешний JavaScript -->
 <script src="script.js"></script>
 </body>
 </html>
