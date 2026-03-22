@@ -8,62 +8,60 @@
 </head>
 <body>
 
-  <!-- БЛОК КАЛЬКУЛЯТОРА -->
-<div class="calc">
-  <div class="card">
-    <div class="head"><h2>Калькулятор влажности</h2></div>
-   <div id="directionHint" class="info"><img src="icons/zap.svg" width="16" height="16" alt=""> Выберите направление расчёта</div>
+<!-- БЛОК КАЛЬКУЛЯТОРА с уникальными классами humidity-* -->
+<div class="humidity-calc">
+  <div class="humidity-card">
+    <div class="humidity-head"><h2>Калькулятор влажности</h2></div>
+    <div id="directionHint" class="humidity-info"><img src="icons/zap.svg" width="16" height="16" alt=""> Выберите направление расчёта</div>
 
-<div class="row">
-  <div class="input-group">
-    <label><img src="icons/arrow-right.svg" width="16" height="16" alt="" class="icon">Из чего:</label>
-    <select id="from" onchange="update()">
-      <option value="" disabled selected hidden>Выберите направление</option>
-      <option value="RH">Относительная влажность</option>
-      <option value="abs">Абсолютная влажность</option>
-      <option value="mix">Влагосодержание</option>
-      <option value="dew">Точка росы</option>
-    </select>
-  </div>
-  <div class="input-group">
-    <label> <img src="icons/arrow-left.svg" width="16" height="16" alt="" class="icon">Во что:</label>
-    <select id="to" onchange="update()">
-      <option value="" disabled selected hidden>Выберите направление</option>
-      <option value="RH">Относительная влажность</option>
-      <option value="abs">Абсолютная влажность</option>
-      <option value="mix">Влагосодержание</option>
-      <option value="dew">Точка росы</option>
-    </select>
-  </div>
-</div>
-    <div id="dirWarn" class="warning" style="display:none"></div>
+    <div class="humidity-row">
+      <div class="humidity-input-group">
+        <label><img src="icons/arrow-right.svg" width="16" height="16" alt="" class="humidity-icon">Из чего:</label>
+        <select id="from" onchange="update()">
+          <option value="" disabled selected hidden>Выберите направление</option>
+          <option value="RH">Относительная влажность</option>
+          <option value="abs">Абсолютная влажность</option>
+          <option value="mix">Влагосодержание</option>
+          <option value="dew">Точка росы</option>
+        </select>
+      </div>
+      <div class="humidity-input-group">
+        <label> <img src="icons/arrow-left.svg" width="16" height="16" alt="" class="humidity-icon">Во что:</label>
+        <select id="to" onchange="update()">
+          <option value="" disabled selected hidden>Выберите направление</option>
+          <option value="RH">Относительная влажность</option>
+          <option value="abs">Абсолютная влажность</option>
+          <option value="mix">Влагосодержание</option>
+          <option value="dew">Точка росы</option>
+        </select>
+      </div>
+    </div>
+    <div id="dirWarn" class="humidity-warning" style="display:none"></div>
 
     <div id="inputs"></div>
 
-    <div class="input-group">
+    <div class="humidity-input-group">
       <br>
       <label>Точность (знаков после запятой)</label>
-      <div class="stepper">
-        <button onclick="changePrec(-1)"> <img src="icons/minus.svg" width="16" height="16" alt="" class="icon" class="icon-light"></button>
+      <div class="humidity-stepper">
+        <button onclick="changePrec(-1)"> <img src="icons/minus.svg" width="16" height="16" alt="" class="humidity-icon"></button>
         <span id="prec">5</span>
-        <button onclick="changePrec(1)"> <img src="icons/plus.svg" width="16" height="16" alt="" class="icon" class="icon-light"></button>
+        <button onclick="changePrec(1)"> <img src="icons/plus.svg" width="16" height="16" alt="" class="humidity-icon"></button>
       </div>
     </div>
 
-    <button class="btn" id="calcBtn" onclick="calc()" disabled><img src="icons/arrow-right.svg" width="16" height="16" alt=""> 
+    <button class="humidity-btn" id="calcBtn" onclick="calc()" disabled><img src="icons/arrow-right.svg" width="16" height="16" alt=""> 
       <span>Выберите направление</span>
     </button>
 
-    <div class="result">
+    <div class="humidity-result">
       <p id="resLabel">Результат:</p>
-      <div class="result-value" id="resVal">—</div>
-      <div class="result-unit" id="resUnit"></div>
+      <div class="humidity-result-value" id="resVal">—</div>
+      <div class="humidity-result-unit" id="resUnit"></div>
     </div>
   </div>
 </div>
 
 <script src="script.js"></script>
-  <!-- БЛОК КАЛЬКУЛЯТОРА -->
-   
 </body>
 </html>
