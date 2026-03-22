@@ -82,6 +82,8 @@ function validateDir() {
   let from = document.getElementById('from').value, to = document.getElementById('to').value;
   let btn = document.getElementById('calcBtn'), warn = document.getElementById('dirWarn');
   
+    updateDirectionHint();
+
   if (!from || !to) {
     btn.disabled = true;
     btn.innerHTML = `<img src="icons/arrow-right.svg" width="16" height="16" alt="" class="icon"> <span>Выберите направление</span>`;
@@ -102,6 +104,21 @@ function validateDir() {
   btn.innerHTML = `<img src="icons/flag.svg" width="16" height="16" alt="" class="icon"> <span>Рассчитать</span>`;
   warn.style.display = 'none';
   return true;
+}
+
+// Управление уведомлением "Выберите направление расчёта"
+function updateDirectionHint() {
+  let from = document.getElementById('from').value;
+  let to = document.getElementById('to').value;
+  let hint = document.getElementById('directionHint');
+  
+  if (from && to) {
+    // Оба направления выбраны → скрываем уведомление
+    hint.style.display = 'none';
+  } else {
+    // Хотя бы одно не выбрано → показываем уведомление
+    hint.style.display = 'flex';
+  }
 }
 
 function realCheck() {
@@ -205,4 +222,5 @@ window.onload = () => {
   document.getElementById('to').onchange = update;
   update();
   document.getElementById('calcBtn').disabled = true;
+  updateDirectionHint(); 
 };
