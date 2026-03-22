@@ -1,10 +1,10 @@
-/* styles.css */
+/* styles.css - все классы имеют префикс humidity- для изоляции */
+
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
-
 
 body {
   background: #f2f2f2;
@@ -15,12 +15,12 @@ body {
   min-height: 100vh;
 }
 
-.calc {
+.humidity-calc {
   max-width: 600px;
   width: 100%;
 }
 
-.card {
+.humidity-card {
   background: #fff;
   border-radius: 16px;
   border: 0.1px dashed #485269;
@@ -28,51 +28,58 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.head {
+.humidity-head {
   background: #0f5c8d;
   margin: -20px -20px 20px -20px;
   padding: 14px 20px;
   border-radius: 16px 16px 0 0;
 }
 
-h2 {
+.humidity-head h2 {
   color: #fff;
   font-size: 1.4rem;
   text-align: center;
   font-weight: 600;
+  margin: 0;
 }
 
-.info {
+.humidity-info {
   background: #e3f2fd;
   padding: 10px 14px;
   border-radius: 12px;
   margin-bottom: 20px;
   font-size: 0.85rem;
   color: #0a3147;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.row {
+.humidity-row {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 8px;
 }
 
-.input-group {
+.humidity-input-group {
   flex: 1;
   min-width: 140px;
   margin-bottom: 16px;
 }
 
-.input-group label {
+.humidity-input-group label {
   font-size: 0.8rem;
   font-weight: 500;
   color: #2c3e50;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 5px;
 }
 
-select, input {
+.humidity-input-group select,
+.humidity-input-group input {
   width: 100%;
   padding: 10px 12px;
   font-size: 0.95rem;
@@ -82,22 +89,23 @@ select, input {
   outline: none;
 }
 
-select:focus, input:focus {
+.humidity-input-group select:focus,
+.humidity-input-group input:focus {
   border-color: #0f5c8d;
 }
 
-input.error {
+.humidity-input-group input.humidity-error {
   border-color: #d32f2f;
   background: #fff5f5;
 }
 
-.stepper {
+.humidity-stepper {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.stepper button {
+.humidity-stepper button {
   width: 38px;
   height: 38px;
   background: #0f5c8d;
@@ -106,14 +114,17 @@ input.error {
   border-radius: 12px;
   font-size: 1.2rem;
   cursor: pointer;
-  transition: 0.1s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s;
 }
 
-.stepper button:active {
+.humidity-stepper button:active {
   transform: scale(0.95);
 }
 
-.stepper span {
+.humidity-stepper span {
   font-size: 1.2rem;
   font-weight: bold;
   background: #eef2f7;
@@ -122,7 +133,7 @@ input.error {
   color: #0f5c8d;
 }
 
-.btn {
+.humidity-btn {
   background: #0f5c8d;
   color: #fff;
   border: none;
@@ -133,21 +144,25 @@ input.error {
   width: 100%;
   margin-top: 8px;
   cursor: pointer;
-  transition: 0.1s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.1s;
 }
 
-.btn:active {
+.humidity-btn:active {
   transform: scale(0.98);
 }
 
-.btn:disabled {
+.humidity-btn:disabled {
   background: #a0b8cc;
   cursor: not-allowed;
   opacity: 0.6;
   transform: none;
 }
 
-.result {
+.humidity-result {
   background: #0f5c8d;
   border-radius: 20px;
   padding: 20px;
@@ -155,7 +170,7 @@ input.error {
   text-align: center;
 }
 
-.result p {
+.humidity-result p {
   color: #fff;
   font-size: 0.9rem;
   text-transform: uppercase;
@@ -164,7 +179,7 @@ input.error {
   opacity: 0.9;
 }
 
-.result-value {
+.humidity-result-value {
   background: rgba(255, 255, 255, 0.2);
   color: #fff;
   font-size: 2rem;
@@ -176,79 +191,87 @@ input.error {
   word-break: break-word;
 }
 
-.result-unit {
+.humidity-result-unit {
   font-size: 0.9rem;
   margin-top: 8px;
   color: rgba(255, 255, 255, 0.8);
 }
 
-.warning {
+.humidity-warning {
   color: #d32f2f;
   font-size: 0.75rem;
   background: #ffebee;
   padding: 8px 12px;
   border-radius: 12px;
   margin: 5px 0 0;
-}
-
-.err-msg {
-  color: #d32f2f;
-  font-size: 0.7rem;
-  margin-top: 4px;
-  font-weight: 500;
-}
-
-@media (max-width: 500px) {
-  .card {
-    padding: 16px;
-  }
-  .head {
-    margin: -16px -16px 16px -16px;
-  }
-  h2 {
-    font-size: 1.2rem;
-  }
-  .result-value {
-    font-size: 1.5rem;
-    padding: 8px 18px;
-  }
-  .row {
-    flex-direction: column;
-    gap: 8px;
-  }
-}
-
-
-
-/* Выравнивание иконок по центру */
-img {
-  vertical-align: middle;
-}
-
-.input-group label,
-.info,
-.warning,
-.err-msg {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.btn,
-.stepper button {
+.humidity-err-msg {
+  color: #d32f2f;
+  font-size: 0.7rem;
+  margin-top: 4px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Стили для placeholder в select */
+.humidity-input-group select option[disabled][selected] {
+  color: #9aa6b5;
+}
+
+.humidity-input-group select:invalid {
+  color: #9aa6b5;
+}
+
+.humidity-input-group select:valid {
+  color: #2c3e50;
+}
+
+/* Адаптивность */
+@media (max-width: 500px) {
+  .humidity-card {
+    padding: 16px;
+  }
+  .humidity-head {
+    margin: -16px -16px 16px -16px;
+  }
+  .humidity-head h2 {
+    font-size: 1.2rem;
+  }
+  .humidity-result-value {
+    font-size: 1.5rem;
+    padding: 8px 18px;
+  }
+  .humidity-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* Выравнивание иконок */
+.humidity-icon {
+  vertical-align: middle;
+  display: inline-block;
+}
+
+.humidity-input-group label,
+.humidity-info,
+.humidity-warning,
+.humidity-err-msg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.humidity-btn,
+.humidity-stepper button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
 }
-
-/* Для изображений внутри flex-контейнеров */
-.input-group label img,
-.info img,
-.warning img,
-.err-msg img,
-.btn img,
-.stepper button img {
-  display: inline-block;
-}
-
