@@ -10,11 +10,11 @@
 <div class="calc">
   <div class="card">
     <div class="head"><h2>Калькулятор влажности</h2></div>
-    <div class="info">⚡ Выберите направление расчёта</div>
+    <div class="info"><img src="icons/zap.svg" width="16" height="16" alt=""> Выберите направление расчёта</div>
 
     <div class="row">
       <div class="input-group">
-        <label>Из чего:</label>
+        <label><img src="icons/arrow-right.svg" width="16" height="16" alt="" class="icon">Из чего:</label>
         <select id="from" onchange="update()">
           <option value="">— выберите —</option>
           <option value="RH">Относительная влажность</option>
@@ -24,7 +24,7 @@
         </select>
       </div>
       <div class="input-group">
-        <label>Во что:</label>
+        <label> <img src="icons/arrow-left.svg" width="16" height="16" alt="" class="icon">Во что:</label>
         <select id="to" onchange="update()">
           <option value="">— выберите —</option>
           <option value="RH">Относительная влажность</option>
@@ -39,15 +39,18 @@
     <div id="inputs"></div>
 
     <div class="input-group">
+      <br>
       <label>Точность (знаков после запятой)</label>
       <div class="stepper">
-        <button onclick="changePrec(-1)">−</button>
+        <button onclick="changePrec(-1)"> <img src="icons/minus.svg" width="16" height="16" alt="" class="icon" class="icon-light"></button>
         <span id="prec">5</span>
-        <button onclick="changePrec(1)">+</button>
+        <button onclick="changePrec(1)"> <img src="icons/plus.svg" width="16" height="16" alt="" class="icon" class="icon-light"></button>
       </div>
     </div>
 
-    <button class="btn" id="calcBtn" onclick="calc()" disabled>➡️ Выберите направление</button>
+    <button class="btn" id="calcBtn" onclick="calc()" disabled><img src="icons/arrow-right.svg" width="16" height="16" alt=""> 
+      <span>Выберите направление</span>
+    </button>
 
     <div class="result">
       <p id="resLabel">Результат:</p>
