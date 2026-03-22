@@ -7,27 +7,98 @@ const MAGNUS_C = 243.12;
 const mmHg2hPa = 1.33322;
 const MIX_FACTOR = 622;
 
-let prec = 5;
-let vals = { rh: "60", abs: "0.0138", mix: "10", dew: "10", temp: "25", press: "760" };
+// Преобразование: кг/м³ → г/м³ (умножаем на 1000)
+const KG_TO_G = 1000;
 
-// ========== ФОРМУЛЫ ==========
+let prec = 1;  // точность по умолчанию - 1 знак после запятой
+let vals = { rh: "60", abs: "13.8", mix: "10", dew: "10", temp: "25", press: "760" };
+
+// ========== СОХРАНЕНИЕ ДАННЫХ (24 часа) ==========
+const STORAGE_KEY = 'humidity_calculator_data';
+const STORAGE_EXPIRY = 24 * 60 * 60 * 1000; // 24 часа
+
+function saveToLocalStorage() {
+  const dataToSave = {
+    vals: vals,
+    from: document.getElementById('from')?.value || '',
+    to: document.getElementById('to')?.value || '',
+    prec: prec,
+    timestamp: Date.now()
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+}
+
+function loadFromLocalStorage() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (!saved) return false;
+  try {
+    const data = JSON.parse(saved);
+    const age = Date.now() - data.timestamp;
+    if (age > STORAGE_EXPIRY) {
+      localStorage.removeItem(STORAGE_KEY);
+      return false;
+    }
+    if (data.vals) vals = data.vals;
+    if (data.prec !== undefined) {
+      prec = data.prec;
+      document.getElementById('prec').innerText = prec;
+    }
+    if (data.from) document.getElementById('from').value = data.from;
+    if (data.to) document.getElementById('to').value = data.to;
+    return true;
+  } catch(e) {
+    localStorage.removeItem(STORAGE_KEY);
+    return false;
+  }
+}
+
+function autoSave() { saveToLocalStorage(); }
+
+// ========== ФОРМУЛЫ (абсолютная влажность в г/м³) ==========
 function es(T) { return MAGNUS_A * Math.exp((MAGNUS_B * T) / (MAGNUS_C + T)); }
-function absFromRH(RH, T) { let e_hPa = (RH / 100) * es(T); return (e_hPa * 100) / (Rv * (T + 273.15)); }
-function RHFromAbs(A, T) { let e_Pa = A * Rv * (T + 273.15); return ((e_Pa / 100) / es(T)) * 100; }
+
+// Абсолютная влажность из относительной (возвращает г/м³)
+function absFromRH(RH, T) { 
+  let e_hPa = (RH / 100) * es(T); 
+  let kg_m3 = (e_hPa * 100) / (Rv * (T + 273.15));
+  return kg_m3 * KG_TO_G; // перевод в г/м³
+}
+
+// Относительная влажность из абсолютной (abs в г/м³)
+function RHFromAbs(A, T) { 
+  let kg_m3 = A / KG_TO_G; // перевод в кг/м³
+  let e_Pa = kg_m3 * Rv * (T + 273.15); 
+  return ((e_Pa / 100) / es(T)) * 100; 
+}
+
 function mixFromRH(RH, T, P) { let e = (RH / 100) * es(T), P_hPa = P * mmHg2hPa; return P_hPa <= e ? Infinity : MIX_FACTOR * e / (P_hPa - e); }
 function RHFromMix(mix, T, P) { let P_hPa = P * mmHg2hPa, e = (mix * P_hPa) / (MIX_FACTOR + mix); return (e / es(T)) * 100; }
 function dewFromRH(RH, T) { if (RH <= 0) return -Infinity; let e = (RH / 100) * es(T), ln = Math.log(e / MAGNUS_A); return (MAGNUS_C * ln) / (MAGNUS_B - ln); }
 function RHFromDew(dew, T) { return (es(dew) / es(T)) * 100; }
-function absFromDew(dew, T) { return absFromRH(RHFromDew(dew, T), T); }
+
+// Абсолютная из точки росы (г/м³)
+function absFromDew(dew, T) { 
+  let RH = RHFromDew(dew, T);
+  return absFromRH(RH, T);
+}
+
 function mixFromDew(dew, T, P) { return mixFromRH(RHFromDew(dew, T), T, P); }
-function dewFromAbs(A, T) { let e = A * Rv * (T + 273.15) / 100, ln = Math.log(e / MAGNUS_A); return (MAGNUS_C * ln) / (MAGNUS_B - ln); }
+
+// Точка росы из абсолютной (abs в г/м³)
+function dewFromAbs(A, T) { 
+  let kg_m3 = A / KG_TO_G;
+  let e = kg_m3 * Rv * (T + 273.15) / 100; 
+  let ln = Math.log(e / MAGNUS_A); 
+  return (MAGNUS_C * ln) / (MAGNUS_B - ln); 
+}
+
 function dewFromMix(mix, T, P) { return dewFromRH(RHFromMix(mix, T, P), T); }
 function maxAbs(T) { return absFromRH(100, T); }
 function maxMix(T, P) { return mixFromRH(100, T, P); }
 
 // ========== ЕДИНИЦЫ ИЗМЕРЕНИЯ ==========
 function getUnit(to) {
-  const units = { 'RH': '%', 'abs': 'кг/м³', 'mix': 'г/кг', 'dew': '°C' };
+  const units = { 'RH': '%', 'abs': 'г/м³', 'mix': 'г/кг', 'dew': '°C' };
   return units[to] || '';
 }
 
@@ -46,6 +117,7 @@ function changePrec(s) {
   if (prec > 10) prec = 10;
   const precSpan = document.getElementById('prec');
   if (precSpan) precSpan.innerText = prec;
+  autoSave();
 }
 
 // ========== UI ==========
@@ -80,7 +152,7 @@ function valNum(id, min, max, name) {
 function valT() { return valNum('temp', -100, 100, 'Температура'); }
 function valP() { return valNum('press', 100, 1100, 'Давление'); }
 function valRH() { return valNum('rh', 0, 100, 'Влажность'); }
-function valAbs() { return valNum('abs', 0, 2, 'Абс.влажность'); }
+function valAbs() { return valNum('abs', 0, 200, 'Абс.влажность'); }  // г/м³ до 200
 function valMix() { return valNum('mix', 0, 1000, 'Влагосодержание'); }
 function valDew() { return valNum('dew', -100, 100, 'Точка росы'); }
 
@@ -136,7 +208,7 @@ function realCheck() {
   }
   if (from === 'abs') {
     let a = parseFloat(document.getElementById('abs')?.value);
-    if (!isNaN(a)) { let mx = maxAbs(t); if (a > mx) showErr('abs', `Превышен максимум (${mx.toFixed(4)} кг/м³)`); }
+    if (!isNaN(a)) { let mx = maxAbs(t); if (a > mx) showErr('abs', `Превышен максимум (${mx.toFixed(1)} г/м³)`); }
   }
   if (from === 'mix') {
     let m = parseFloat(document.getElementById('mix')?.value);
@@ -164,14 +236,15 @@ function update() {
   let html = `<br><div class="humidity-input-group"><label><img src="icons/thermometer.svg" width="16" height="16" alt="" class="humidity-icon"> Температура, °C</label><input type="number" id="temp" value="${vals.temp}" step="0.1"></div>
               <div class="humidity-input-group"><label><img src="icons/bar-chart-2.svg" width="16" height="16" alt="" class="humidity-icon"> Давление, мм рт.ст.</label><input type="number" id="press" value="${vals.press}" step="0.1"></div>`;
   if (from === 'RH') html += `<div class="humidity-input-group"><label><img src="icons/droplet.svg" width="16" height="16" alt="" class="humidity-icon"> Отн.влажность, %</label><input type="number" id="rh" value="${vals.rh}" step="0.1"></div>`;
-  else if (from === 'abs') html += `<div class="humidity-input-group"><label><img src="icons/droplet.svg" width="16" height="16" alt="" class="humidity-icon"> Абс.влажность, кг/м³</label><input type="number" id="abs" value="${vals.abs}" step="0.0001"></div>`;
+  else if (from === 'abs') html += `<div class="humidity-input-group"><label><img src="icons/droplet.svg" width="16" height="16" alt="" class="humidity-icon"> Абс.влажность, г/м³</label><input type="number" id="abs" value="${vals.abs}" step="0.1"></div>`;
   else if (from === 'mix') html += `<div class="humidity-input-group"><label><img src="icons/cloud.svg" width="16" height="16" alt="" class="humidity-icon"> Влагосодержание, г/кг</label><input type="number" id="mix" value="${vals.mix}" step="0.01"></div>`;
   else if (from === 'dew') html += `<div class="humidity-input-group"><label><img src="icons/cloud-rain.svg" width="16" height="16" alt="" class="humidity-icon"> Точка росы, °C</label><input type="number" id="dew" value="${vals.dew}" step="0.1"></div>`;
   cont.innerHTML = html;
-  document.querySelectorAll('#inputs input').forEach(i => { i.addEventListener('input', () => { clearErr(); realCheck(); }); });
+  document.querySelectorAll('#inputs input').forEach(i => { i.addEventListener('input', () => { clearErr(); realCheck(); autoSave(); }); });
   realCheck();
   updateResultLabel(to);
   validateDir();
+  autoSave();
 }
 
 function calc() {
@@ -191,7 +264,7 @@ function calc() {
     }
     else if (from === 'abs') {
       let A = valAbs(); if (A === null) return;
-      let mx = maxAbs(T); if (A > mx) throw new Error(`Превышен максимум (${mx.toFixed(4)} кг/м³)`);
+      let mx = maxAbs(T); if (A > mx) throw new Error(`Превышен максимум (${mx.toFixed(1)} г/м³)`);
       if (to === 'RH') res = RHFromAbs(A, T);
       else if (to === 'mix') res = mixFromRH(RHFromAbs(A, T), T, P);
       else if (to === 'dew') res = dewFromAbs(A, T);
@@ -216,15 +289,28 @@ function calc() {
     if (to === 'dew' && !isFinite(res)) throw new Error('Точка росы не определена');
     span.innerText = res.toFixed(prec);
     document.getElementById('resUnit').innerHTML = getUnit(to);
+    autoSave();
   } catch (e) { alert(e.message); span.innerText = '—'; document.getElementById('resUnit').innerHTML = ''; }
 }
 
 window.onload = () => {
-  document.getElementById('from').value = '';
-  document.getElementById('to').value = '';
+  const hasSavedData = loadFromLocalStorage();
+  
+  if (hasSavedData) {
+    update();
+    if (document.getElementById('from').value && document.getElementById('to').value) {
+      document.getElementById('calcBtn').disabled = false;
+      document.getElementById('calcBtn').innerHTML = `<img src="icons/flag.svg" width="16" height="16" alt="" class="humidity-icon"> <span>Рассчитать</span>`;
+      document.getElementById('dirWarn').style.display = 'none';
+    }
+  } else {
+    document.getElementById('from').value = '';
+    document.getElementById('to').value = '';
+    update();
+    document.getElementById('calcBtn').disabled = true;
+  }
+  
   document.getElementById('from').onchange = update;
   document.getElementById('to').onchange = update;
-  update();
-  document.getElementById('calcBtn').disabled = true;
   updateDirectionHint(); 
 };
