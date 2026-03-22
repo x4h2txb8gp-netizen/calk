@@ -5,6 +5,7 @@
   padding: 0;
 }
 
+
 body {
   background: #f2f2f2;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -22,7 +23,7 @@ body {
 .card {
   background: #fff;
   border-radius: 16px;
-  border: 1px dashed #2a63dc;
+  border: 0.1px dashed #485269;
   padding: 20px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
@@ -216,3 +217,38 @@ input.error {
     gap: 8px;
   }
 }
+
+
+
+/* Выравнивание иконок по центру */
+img {
+  vertical-align: middle;
+}
+
+.input-group label,
+.info,
+.warning,
+.err-msg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn,
+.stepper button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Для изображений внутри flex-контейнеров */
+.input-group label img,
+.info img,
+.warning img,
+.err-msg img,
+.btn img,
+.stepper button img {
+  display: inline-block;
+}
+
