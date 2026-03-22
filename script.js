@@ -1,4 +1,4 @@
-// script.js
+// script.js - адаптирован под уникальные классы humidity-*
 // ========== КОНСТАНТЫ ==========
 const Rv = 461.5;
 const MAGNUS_A = 6.112;
@@ -33,8 +33,10 @@ function getUnit(to) {
 
 function updateResultLabel(to) {
   const labels = { 'RH': 'Относительная влажность', 'abs': 'Абсолютная влажность', 'mix': 'Влагосодержание', 'dew': 'Точка росы' };
-  document.getElementById('resLabel').innerHTML = labels[to] || 'Результат';
-  document.getElementById('resUnit').innerHTML = getUnit(to);
+  const resLabel = document.getElementById('resLabel');
+  const resUnit = document.getElementById('resUnit');
+  if (resLabel) resLabel.innerHTML = labels[to] || 'Результат';
+  if (resUnit) resUnit.innerHTML = getUnit(to);
 }
 
 // ========== ИЗМЕНЕНИЕ ТОЧНОСТИ ==========
@@ -42,27 +44,30 @@ function changePrec(s) {
   prec += s;
   if (prec < 0) prec = 0;
   if (prec > 10) prec = 10;
-  document.getElementById('prec').innerText = prec;
+  const precSpan = document.getElementById('prec');
+  if (precSpan) precSpan.innerText = prec;
 }
 
 // ========== UI ==========
 function clearErr() {
-  document.querySelectorAll('.input-group input').forEach(i => i.classList.remove('error'));
-  document.querySelectorAll('.err-msg').forEach(e => e.remove());
+  document.querySelectorAll('.humidity-input-group input').forEach(i => i.classList.remove('humidity-error'));
+  document.querySelectorAll('.humidity-err-msg').forEach(e => e.remove());
 }
+
 function showErr(id, msg) {
   let i = document.getElementById(id);
   if (i) {
-    i.classList.add('error');
-    let p = i.closest('.input-group');
-    let old = p.querySelector('.err-msg');
+    i.classList.add('humidity-error');
+    let p = i.closest('.humidity-input-group');
+    let old = p.querySelector('.humidity-err-msg');
     if (old) old.remove();
     let d = document.createElement('div');
-    d.className = 'err-msg';
-    d.innerHTML = `<img src="icons/x-circle.svg" width="12" height="12" alt="" class="icon"> <span>${msg}</span>`;
+    d.className = 'humidity-err-msg';
+    d.innerHTML = `<img src="icons/x-circle.svg" width="12" height="12" alt="" class="humidity-icon"> <span>${msg}</span>`;
     p.appendChild(d);
   }
 }
+
 function valNum(id, min, max, name) {
   let i = document.getElementById(id);
   if (!i) return null;
@@ -71,6 +76,7 @@ function valNum(id, min, max, name) {
   if (v < min || v > max) { showErr(id, `${name} от ${min} до ${max}`); return null; }
   return v;
 }
+
 function valT() { return valNum('temp', -100, 100, 'Температура'); }
 function valP() { return valNum('press', 100, 1100, 'Давление'); }
 function valRH() { return valNum('rh', 0, 100, 'Влажность'); }
@@ -82,26 +88,26 @@ function validateDir() {
   let from = document.getElementById('from').value, to = document.getElementById('to').value;
   let btn = document.getElementById('calcBtn'), warn = document.getElementById('dirWarn');
   
-    updateDirectionHint();
+  updateDirectionHint();
 
   if (!from || !to) {
     btn.disabled = true;
-    btn.innerHTML = `<img src="icons/arrow-right.svg" width="16" height="16" alt="" class="icon"> <span>Выберите направление</span>`;
+    btn.innerHTML = `<img src="icons/arrow-right.svg" width="16" height="16" alt="" class="humidity-icon"> <span>Выберите направление</span>`;
     warn.style.display = 'flex';
-    warn.innerHTML = `<img src="icons/alert-triangle.svg" width="12" height="12" alt="" class="icon"> <span>Выберите оба параметра</span>`;
+    warn.innerHTML = `<img src="icons/alert-triangle.svg" width="12" height="12" alt="" class="humidity-icon"> <span>Выберите оба параметра</span>`;
     return false;
   }
   
   if (from === to) {
     btn.disabled = true;
-    btn.innerHTML = `<img src="icons/slash.svg" width="16" height="16" alt="" class="icon"> <span>Нельзя в себя</span>`;
+    btn.innerHTML = `<img src="icons/slash.svg" width="16" height="16" alt="" class="humidity-icon"> <span>Нельзя в себя</span>`;
     warn.style.display = 'flex';
-    warn.innerHTML = `<img src="icons/alert-triangle.svg" width="12" height="12" alt="" class="icon"> <span>Нельзя пересчитывать саму величину</span>`;
+    warn.innerHTML = `<img src="icons/alert-triangle.svg" width="12" height="12" alt="" class="humidity-icon"> <span>Нельзя пересчитывать саму величину</span>`;
     return false;
   }
   
   btn.disabled = false;
-  btn.innerHTML = `<img src="icons/flag.svg" width="16" height="16" alt="" class="icon"> <span>Рассчитать</span>`;
+  btn.innerHTML = `<img src="icons/flag.svg" width="16" height="16" alt="" class="humidity-icon"> <span>Рассчитать</span>`;
   warn.style.display = 'none';
   return true;
 }
@@ -113,10 +119,8 @@ function updateDirectionHint() {
   let hint = document.getElementById('directionHint');
   
   if (from && to) {
-    // Оба направления выбраны → скрываем уведомление
     hint.style.display = 'none';
   } else {
-    // Хотя бы одно не выбрано → показываем уведомление
     hint.style.display = 'flex';
   }
 }
@@ -157,12 +161,12 @@ function update() {
     else if (i.id === 'dew') vals.dew = i.value;
   });
   if (!from) { cont.innerHTML = ''; updateResultLabel(to); validateDir(); return; }
-  let html = `<br><div class="input-group"><label><img src="icons/thermometer.svg" width="16" height="16" alt=""> Температура, °C</label><input type="number" id="temp" value="${vals.temp}" step="0.1"></div>
-              <div class="input-group"><label><img src="icons/bar-chart-2.svg" width="16" height="16" alt=""> Давление, мм рт.ст.</label><input type="number" id="press" value="${vals.press}" step="0.1"></div>`;
-  if (from === 'RH') html += `<div class="input-group"><label><img src="icons/droplet.svg" width="16" height="16" alt=""> Отн.влажность, %</label><input type="number" id="rh" value="${vals.rh}" step="0.1"></div>`;
-  else if (from === 'abs') html += `<div class="input-group"><label><img src="icons/droplet.svg" width="16" height="16" alt=""> Абс.влажность, кг/м³</label><input type="number" id="abs" value="${vals.abs}" step="0.0001"></div>`;
-  else if (from === 'mix') html += `<div class="input-group"><label><img src="icons/cloud.svg" width="16" height="16" alt=""> Влагосодержание, г/кг</label><input type="number" id="mix" value="${vals.mix}" step="0.01"></div>`;
-  else if (from === 'dew') html += `<div class="input-group"><label><img src="icons/cloud-rain.svg" width="16" height="16" alt=""> Точка росы, °C</label><input type="number" id="dew" value="${vals.dew}" step="0.1"></div>`;
+  let html = `<br><div class="humidity-input-group"><label><img src="icons/thermometer.svg" width="16" height="16" alt="" class="humidity-icon"> Температура, °C</label><input type="number" id="temp" value="${vals.temp}" step="0.1"></div>
+              <div class="humidity-input-group"><label><img src="icons/bar-chart-2.svg" width="16" height="16" alt="" class="humidity-icon"> Давление, мм рт.ст.</label><input type="number" id="press" value="${vals.press}" step="0.1"></div>`;
+  if (from === 'RH') html += `<div class="humidity-input-group"><label><img src="icons/droplet.svg" width="16" height="16" alt="" class="humidity-icon"> Отн.влажность, %</label><input type="number" id="rh" value="${vals.rh}" step="0.1"></div>`;
+  else if (from === 'abs') html += `<div class="humidity-input-group"><label><img src="icons/droplet.svg" width="16" height="16" alt="" class="humidity-icon"> Абс.влажность, кг/м³</label><input type="number" id="abs" value="${vals.abs}" step="0.0001"></div>`;
+  else if (from === 'mix') html += `<div class="humidity-input-group"><label><img src="icons/cloud.svg" width="16" height="16" alt="" class="humidity-icon"> Влагосодержание, г/кг</label><input type="number" id="mix" value="${vals.mix}" step="0.01"></div>`;
+  else if (from === 'dew') html += `<div class="humidity-input-group"><label><img src="icons/cloud-rain.svg" width="16" height="16" alt="" class="humidity-icon"> Точка росы, °C</label><input type="number" id="dew" value="${vals.dew}" step="0.1"></div>`;
   cont.innerHTML = html;
   document.querySelectorAll('#inputs input').forEach(i => { i.addEventListener('input', () => { clearErr(); realCheck(); }); });
   realCheck();
