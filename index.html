@@ -7,33 +7,35 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
+  <!-- БЛОК КАЛЬКУЛЯТОРА -->
 <div class="calc">
   <div class="card">
     <div class="head"><h2>Калькулятор влажности</h2></div>
-    <div class="info"><img src="icons/zap.svg" width="16" height="16" alt=""> Выберите направление расчёта</div>
+   <div id="directionHint" class="info"><img src="icons/zap.svg" width="16" height="16" alt=""> Выберите направление расчёта</div>
 
-    <div class="row">
-      <div class="input-group">
-        <label><img src="icons/arrow-right.svg" width="16" height="16" alt="" class="icon">Из чего:</label>
-        <select id="from" onchange="update()">
-          <option value="">— выберите —</option>
-          <option value="RH">Относительная влажность</option>
-          <option value="abs">Абсолютная влажность</option>
-          <option value="mix">Влагосодержание</option>
-          <option value="dew">Точка росы</option>
-        </select>
-      </div>
-      <div class="input-group">
-        <label> <img src="icons/arrow-left.svg" width="16" height="16" alt="" class="icon">Во что:</label>
-        <select id="to" onchange="update()">
-          <option value="">— выберите —</option>
-          <option value="RH">Относительная влажность</option>
-          <option value="abs">Абсолютная влажность</option>
-          <option value="mix">Влагосодержание</option>
-          <option value="dew">Точка росы</option>
-        </select>
-      </div>
-    </div>
+<div class="row">
+  <div class="input-group">
+    <label><img src="icons/arrow-right.svg" width="16" height="16" alt="" class="icon">Из чего:</label>
+    <select id="from" onchange="update()">
+      <option value="" disabled selected hidden>Выберите направление</option>
+      <option value="RH">Относительная влажность</option>
+      <option value="abs">Абсолютная влажность</option>
+      <option value="mix">Влагосодержание</option>
+      <option value="dew">Точка росы</option>
+    </select>
+  </div>
+  <div class="input-group">
+    <label> <img src="icons/arrow-left.svg" width="16" height="16" alt="" class="icon">Во что:</label>
+    <select id="to" onchange="update()">
+      <option value="" disabled selected hidden>Выберите направление</option>
+      <option value="RH">Относительная влажность</option>
+      <option value="abs">Абсолютная влажность</option>
+      <option value="mix">Влагосодержание</option>
+      <option value="dew">Точка росы</option>
+    </select>
+  </div>
+</div>
     <div id="dirWarn" class="warning" style="display:none"></div>
 
     <div id="inputs"></div>
@@ -61,5 +63,7 @@
 </div>
 
 <script src="script.js"></script>
+  <!-- БЛОК КАЛЬКУЛЯТОРА -->
+   
 </body>
 </html>
