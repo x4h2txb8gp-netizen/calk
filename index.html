@@ -59,6 +59,26 @@
       <div class="humidity-result-value" id="resVal">—</div>
       <div class="humidity-result-unit" id="resUnit"></div>
     </div>
+
+
+<!-- Таблица давления насыщенных паров -->
+<div class="humidity-table">
+  <div class="humidity-table-header" onclick="toggleTable()">
+    <span> <img src="icons/book.svg" width="16" height="16" alt="" class="humidity-icon"> Давление насыщенных паров (кПа)</span>
+    <span class="humidity-table-arrow">▼</span>
+  </div>
+  <div id="vaporPressureTable" class="humidity-table-content" style="display: none;">
+    <table>
+      <thead>
+        <tr><th>Температура, °C</th><th>Давление, кПа</th></tr>
+      </thead>
+      <tbody id="vaporPressureTableBody">
+        <!-- сюда JS вставит строки -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
   </div>
 </div>
 
