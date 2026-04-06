@@ -275,3 +275,73 @@ body {
   justify-content: center;
   gap: 8px;
 }
+
+/* ========== ТАБЛИЦА ДАВЛЕНИЯ НАСЫЩЕННЫХ ПАРОВ ========== */
+.humidity-table {
+  margin-top: 20px;
+  border: 1px solid #d0d8e8;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.humidity-table-header {
+  background: #e3f2fd;
+  padding: 10px 15px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
+  color: #0f5c8d;
+  user-select: none;
+}
+
+.humidity-table-header:hover {
+  background: #d0e4f5;
+}
+
+.humidity-table-arrow {
+  transition: transform 0.2s;
+}
+
+.humidity-table-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+.humidity-table-content {
+  background: #fff;
+  overflow-x: auto;
+}
+
+.humidity-table-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.humidity-table-content th,
+.humidity-table-content td {
+  padding: 8px 12px;
+  text-align: center;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.humidity-table-content th {
+  background: #f8faff;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.humidity-table-content tr:hover {
+  background: #f5f9ff;
+}
+.humidity-icon {
+  vertical-align: middle;
+  display: inline-block;
+}
+
+/* Специально для иконки книги, если другие способы не помогают */
+img[src*="book"] {
+  position: relative;
+  top: -1px;
+}
