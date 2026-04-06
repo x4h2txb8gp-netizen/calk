@@ -15,9 +15,8 @@ const MAGNUS_B = 17.62;
 // Эмпирический коэффициент для диапазона -40..+100°C
 const MAGNUS_C = 243.12;
 
-// **mmHg2hPa = 1.33322** — коэффициент перевода мм рт.ст. в гПа
-// 1 мм рт.ст. = 1.33322 гПа
-const mmHg2hPa = 1.33322;
+
+const kPa2hPa = 10;  // 1 кПа = 10 гПа
 
 // **MIX_FACTOR = 622** — коэффициент для расчёта влагосодержания (г/кг)
 // Отношение молекулярных масс водяного пара и сухого воздуха: 18.015 / 28.964 × 1000 ≈ 622
@@ -27,7 +26,7 @@ const MIX_FACTOR = 622;
 const KG_TO_G = 1000;
 
 let prec = 1;  // точность по умолчанию - 1 знак после запятой
-let vals = { rh: "60", abs: "13.8", mix: "10", dew: "10", temp: "25", press: "760" };
+let vals = { rh: "60", abs: "13.8", mix: "10", dew: "10", temp: "25", press: "101.3" };
 
 // ========== 2. СОХРАНЕНИЕ ДАННЫХ (24 часа) ==========
 const STORAGE_KEY = 'humidity_calculator_data';
@@ -74,6 +73,10 @@ function autoSave() { saveToLocalStorage(); }
 
 // ============================================================
 // ФОРМУЛА ГОФФА-ГРАТЧА (уточнённая версия, 1970)
+//Формула Гоффа-Грэтча (Goff-Gratch) используется для 
+// расчета давления насыщенного водяного пара 
+// (максимально возможного давления пара при данной температуре)
+//  над плоской поверхностью воды
 // Рекомендована ВМО для диапазона -80°C … +100°C
 // Погрешность: < 0.05% во всём диапазоне
 // ============================================================
@@ -107,6 +110,42 @@ function es(T_Celsius) {
   return Math.pow(10, log10_es);
 }
 
+
+// ========== ТАБЛИЦА ДАВЛЕНИЯ НАСЫЩЕННЫХ ПАРОВ (в кПа) ==========
+function generateVaporPressureTable() {
+  const tbody = document.getElementById('vaporPressureTableBody');
+  if (!tbody) return;
+  
+  // Диапазон температур от -40°C до +100°C с шагом 10°C
+  const temps = [];
+  for (let t = -40; t <= 100; t += 10) {
+    temps.push(t);
+  }
+  
+  let html = '';
+  for (const t of temps) {
+    const pressure_hPa = es(t);           // давление в гПа
+    const pressure_kPa = pressure_hPa / 10; // перевод в кПа (1 кПа = 10 гПа)
+    html += `<tr><td>${t}</td><td>${pressure_kPa.toFixed(3)}</td></tr>`;
+  }
+  tbody.innerHTML = html;
+
+}
+
+// Переключение видимости таблицы
+function toggleTable() {
+  const tableContent = document.getElementById('vaporPressureTable');
+  const arrow = document.querySelector('.humidity-table-arrow');
+  if (tableContent.style.display === 'none') {
+    tableContent.style.display = 'block';
+    if (arrow) arrow.classList.add('rotated');
+  } else {
+    tableContent.style.display = 'none';
+    if (arrow) arrow.classList.remove('rotated');
+  }
+}
+
+
 // Абсолютная влажность из относительной (возвращает г/м³)
 function absFromRH(RH, T) { 
   let e_hPa = (RH / 100) * es(T); 
@@ -133,7 +172,7 @@ function RHFromAbs(A, T) {
 // ============================================================
 function mixFromRH(RH, T, P) { 
   let e = (RH / 100) * es(T);
-  let P_hPa = P * mmHg2hPa;
+  let P_hPa = P * kPa2hPa;
   if (P_hPa <= e) return Infinity;
   
   let x = MIX_FACTOR * e / (P_hPa - e);
@@ -196,7 +235,7 @@ function mixFromRH(RH, T, P) {
 // RH = (e / es(T)) × 100
 // ------------------------------------------------------------
 function RHFromMix(mix, T, P) { 
-  let P_hPa = P * mmHg2hPa;                 // перевод давления в гПа
+  let P_hPa = P * kPa2hPa;               
   let e = (mix * P_hPa) / (MIX_FACTOR + mix); // **обратная формула влагосодержания**
   return (e / es(T)) * 100;                 // **формула относительной влажности**
 }
@@ -342,7 +381,7 @@ function valNum(id, min, max, name) {
 }
 
 function valT() { return valNum('temp', -100, 100, 'Температура'); }
-function valP() { return valNum('press', 100, 1100, 'Давление'); }
+function valP() { return valNum('press', 10, 150, 'Давление'); }  // 10-150 кПа
 function valRH() { return valNum('rh', 0, 100, 'Влажность'); }
 function valAbs() { return valNum('abs', 0, 1000, 'Абс.влажность'); }  // г/м³ до 200
 function valMix() { return valNum('mix', 0, 1000, 'Влагосодержание'); }
@@ -352,7 +391,7 @@ function valDew() { return valNum('dew', -100, 100, 'Точка росы'); }
 function validateDir() {
   let from = document.getElementById('from').value, to = document.getElementById('to').value;
   let btn = document.getElementById('calcBtn'), warn = document.getElementById('dirWarn');
-  
+  resetResult();
   updateDirectionHint();
 
   if (!from || !to) {
@@ -376,6 +415,15 @@ function validateDir() {
   warn.style.display = 'none';
   return true;
 }
+
+// ========== СБРОС РЕЗУЛЬТАТА ПРИ СМЕНЕ НАПРАВЛЕНИЯ ==========
+function resetResult() {
+  const resVal = document.getElementById('resVal');
+  const resUnit = document.getElementById('resUnit');
+  if (resVal) resVal.innerText = '—';
+  if (resUnit) resUnit.innerHTML = '';
+}
+
 
 function updateDirectionHint() {
   let from = document.getElementById('from').value;
@@ -433,6 +481,7 @@ function realCheck() {
 // ========== 10. ДИНАМИЧЕСКОЕ ОБНОВЛЕНИЕ ПОЛЕЙ ==========
 function update() {
   let from = document.getElementById('from').value, to = document.getElementById('to').value, cont = document.getElementById('inputs');
+   resetResult();
   let inputs = cont.querySelectorAll('input');
   inputs.forEach(i => {
     if (i.id === 'temp') vals.temp = i.value;
@@ -443,12 +492,16 @@ function update() {
     else if (i.id === 'dew') vals.dew = i.value;
   });
   if (!from) { cont.innerHTML = ''; updateResultLabel(to); validateDir(); return; }
-  let html = `<br><div class="humidity-input-group"><label><img src="icons/thermometer.svg" width="16" height="16" alt="" class="humidity-icon"> Температура, °C</label><input type="number" id="temp" value="${vals.temp}" step="0.1"></div>
-              <div class="humidity-input-group"><label><img src="icons/bar-chart-2.svg" width="16" height="16" alt="" class="humidity-icon"> Давление, мм рт.ст.</label><input type="number" id="press" value="${vals.press}" step="0.1"></div>`;
-  if (from === 'RH') html += `<div class="humidity-input-group"><label><img src="icons/droplet.svg" width="16" height="16" alt="" class="humidity-icon"> Отн.влажность, %</label><input type="number" id="rh" value="${vals.rh}" step="0.1"></div>`;
-  else if (from === 'abs') html += `<div class="humidity-input-group"><label><img src="icons/droplet.svg" width="16" height="16" alt="" class="humidity-icon"> Абс.влажность, г/м³</label><input type="number" id="abs" value="${vals.abs}" step="0.1"></div>`;
-  else if (from === 'mix') html += `<div class="humidity-input-group"><label><img src="icons/cloud.svg" width="16" height="16" alt="" class="humidity-icon"> Влагосодержание, г/кг</label><input type="number" id="mix" value="${vals.mix}" step="0.01"></div>`;
-  else if (from === 'dew') html += `<div class="humidity-input-group"><label><img src="icons/cloud-rain.svg" width="16" height="16" alt="" class="humidity-icon"> Точка росы, °C</label><input type="number" id="dew" value="${vals.dew}" step="0.1"></div>`;
+  let html = `<br><div class="humidity-input-group"><label><img src="icons/thermometer.svg" width="16" height="16" alt="" class="humidity-icon"> Температура, °C</label><input type="number" id="temp" value="${vals.temp}" step="0.1"></div>`;
+
+// Исходный параметр (вторым полем)
+if (from === 'RH') html += `<div class="humidity-input-group"><label><img src="icons/droplet.svg" width="16" height="16" alt="" class="humidity-icon"> Отн.влажность, %</label><input type="number" id="rh" value="${vals.rh}" step="0.1"></div>`;
+else if (from === 'abs') html += `<div class="humidity-input-group"><label><img src="icons/droplet.svg" width="16" height="16" alt="" class="humidity-icon"> Абс.влажность, г/м³</label><input type="number" id="abs" value="${vals.abs}" step="0.1"></div>`;
+else if (from === 'mix') html += `<div class="humidity-input-group"><label><img src="icons/cloud.svg" width="16" height="16" alt="" class="humidity-icon"> Влагосодержание, г/кг</label><input type="number" id="mix" value="${vals.mix}" step="0.01"></div>`;
+else if (from === 'dew') html += `<div class="humidity-input-group"><label><img src="icons/cloud-rain.svg" width="16" height="16" alt="" class="humidity-icon"> Точка росы, °C</label><input type="number" id="dew" value="${vals.dew}" step="0.1"></div>`;
+
+// Давление (третьим полем)
+html += `<div class="humidity-input-group"><label><img src="icons/bar-chart-2.svg" width="16" height="16" alt="" class="humidity-icon"> Давление, кПа</label><input type="number" id="press" value="${vals.press}" step="0.1"></div>`;
   cont.innerHTML = html;
   document.querySelectorAll('#inputs input').forEach(i => { i.addEventListener('input', () => { clearErr(); realCheck(); autoSave(); }); });
   realCheck();
@@ -540,4 +593,5 @@ window.onload = () => {
   document.getElementById('from').onchange = update;
   document.getElementById('to').onchange = update;
   updateDirectionHint(); 
+  generateVaporPressureTable(); 
 };
