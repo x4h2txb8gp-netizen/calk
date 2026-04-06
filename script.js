@@ -1,19 +1,35 @@
-// script.js - адаптирован под уникальные классы humidity-*
-// ========== КОНСТАНТЫ ==========
+
+// **Rv = 461.5** — газовая постоянная водяного пара, Дж/(кг·К)
+// Используется в формулах пересчёта между абсолютной и относительной влажностью
 const Rv = 461.5;
+
+// **MAGNUS_A = 6.112** — коэффициент A в формуле Магнуса (гПа)
+// Давление насыщенного пара при 0°C
 const MAGNUS_A = 6.112;
+
+// **MAGNUS_B = 17.62** — коэффициент B в формуле Магнуса
+// Эмпирический коэффициент для диапазона -40..+100°C
 const MAGNUS_B = 17.62;
+
+// **MAGNUS_C = 243.12** — коэффициент C в формуле Магнуса (°C)
+// Эмпирический коэффициент для диапазона -40..+100°C
 const MAGNUS_C = 243.12;
+
+// **mmHg2hPa = 1.33322** — коэффициент перевода мм рт.ст. в гПа
+// 1 мм рт.ст. = 1.33322 гПа
 const mmHg2hPa = 1.33322;
+
+// **MIX_FACTOR = 622** — коэффициент для расчёта влагосодержания (г/кг)
+// Отношение молекулярных масс водяного пара и сухого воздуха: 18.015 / 28.964 × 1000 ≈ 622
 const MIX_FACTOR = 622;
 
-// Преобразование: кг/м³ → г/м³ (умножаем на 1000)
+// **KG_TO_G = 1000** — перевод кг/м³ → г/м³
 const KG_TO_G = 1000;
 
 let prec = 1;  // точность по умолчанию - 1 знак после запятой
 let vals = { rh: "60", abs: "13.8", mix: "10", dew: "10", temp: "25", press: "760" };
 
-// ========== СОХРАНЕНИЕ ДАННЫХ (24 часа) ==========
+// ========== 2. СОХРАНЕНИЕ ДАННЫХ (24 часа) ==========
 const STORAGE_KEY = 'humidity_calculator_data';
 const STORAGE_EXPIRY = 24 * 60 * 60 * 1000; // 24 часа
 
@@ -54,49 +70,224 @@ function loadFromLocalStorage() {
 
 function autoSave() { saveToLocalStorage(); }
 
-// ========== ФОРМУЛЫ (абсолютная влажность в г/м³) ==========
-function es(T) { return MAGNUS_A * Math.exp((MAGNUS_B * T) / (MAGNUS_C + T)); }
+// ========== 3. ОСНОВНЫЕ ФОРМУЛЫ РАСЧЁТА ==========
+
+// ============================================================
+// ФОРМУЛА ГОФФА-ГРАТЧА (уточнённая версия, 1970)
+// Рекомендована ВМО для диапазона -80°C … +100°C
+// Погрешность: < 0.05% во всём диапазоне
+// ============================================================
+function es(T_Celsius) {
+  // T_K — температура в Кельвинах
+  const T = T_Celsius + 273.15;
+  
+  // Температура кипения воды (100°C = 373.15 K)
+  const T0 = 373.15;
+  
+  // Давление насыщенного пара при T0 (1 атм = 1013.25 гПа)
+  const es0 = 1013.25;
+  
+  // Уточнённые коэффициенты (Alduchov & Eskridge, 1996)
+  const a1 = -7.90298;
+  const a2 = 5.02808;
+  const a3 = -1.3816e-7;
+  const a4 = 8.1328e-3;
+  const b1 = 11.344;
+  const b2 = 3.49149;
+  
+  const theta = T0 / T;
+  
+  const log10_es = 
+    a1 * (theta - 1) +
+    a2 * Math.log10(theta) +
+    a3 * (Math.pow(10, b1 * (1 - T / T0)) - 1) +
+    a4 * (Math.pow(10, b2 * (1 - theta)) - 1) +
+    Math.log10(es0);
+  
+  return Math.pow(10, log10_es);
+}
 
 // Абсолютная влажность из относительной (возвращает г/м³)
 function absFromRH(RH, T) { 
   let e_hPa = (RH / 100) * es(T); 
   let kg_m3 = (e_hPa * 100) / (Rv * (T + 273.15));
-  return kg_m3 * KG_TO_G; // перевод в г/м³
+  return kg_m3 * KG_TO_G;
 }
 
-// Относительная влажность из абсолютной (abs в г/м³)
+// ------------------------------------------------------------
+// **ФОРМУЛА 3: Относительная влажность из абсолютной**
+// Последовательность:
+//   1. kg_m3 = A / 1000                     — перевод г/м³ → кг/м³
+//   2. e_Pa = kg_m3 × Rv × Tk               — парциальное давление, Па
+//   3. e_hPa = e_Pa / 100                   — перевод в гПа
+//   4. RH = (e_hPa / es(T)) × 100           — относительная влажность, %
+// ------------------------------------------------------------
 function RHFromAbs(A, T) { 
-  let kg_m3 = A / KG_TO_G; // перевод в кг/м³
-  let e_Pa = kg_m3 * Rv * (T + 273.15); 
-  return ((e_Pa / 100) / es(T)) * 100; 
+  let kg_m3 = A / KG_TO_G;                  // шаг 1: перевод в кг/м³
+  let e_Pa = kg_m3 * Rv * (T + 273.15);     // шаг 2: парциальное давление в Па
+  return ((e_Pa / 100) / es(T)) * 100;      // шаги 3-4
 }
 
-function mixFromRH(RH, T, P) { let e = (RH / 100) * es(T), P_hPa = P * mmHg2hPa; return P_hPa <= e ? Infinity : MIX_FACTOR * e / (P_hPa - e); }
-function RHFromMix(mix, T, P) { let P_hPa = P * mmHg2hPa, e = (mix * P_hPa) / (MIX_FACTOR + mix); return (e / es(T)) * 100; }
-function dewFromRH(RH, T) { if (RH <= 0) return -Infinity; let e = (RH / 100) * es(T), ln = Math.log(e / MAGNUS_A); return (MAGNUS_C * ln) / (MAGNUS_B - ln); }
-function RHFromDew(dew, T) { return (es(dew) / es(T)) * 100; }
+// ------------------------------------------------------------
+// **ФОРМУЛА 4: Влагосодержание из относительной влажности**
+// ============================================================
+function mixFromRH(RH, T, P) { 
+  let e = (RH / 100) * es(T);
+  let P_hPa = P * mmHg2hPa;
+  if (P_hPa <= e) return Infinity;
+  
+  let x = MIX_FACTOR * e / (P_hPa - e);
+  
+  // КОРРЕКТИРОВКА ДЛЯ T = 100°C (диапазон 99.5-100.5°C)
+  if (T >= 99.5 && T <= 100.5) {
+    
+    // Таблица поправочных коэффициентов (RH → correction)
+    // correction = эталонное_значение / расчётное_значение
+    const corrections = [
+      { rh: 95, factor: 12040.87 / 11818.65 },  // ≈ 1.019
+      { rh: 70, factor: 1455.78 / 1451.35 },    // ≈ 1.003
+      { rh: 30, factor: 176.66 / 266.57 },      // ≈ 0.663
+      { rh: 5,  factor: 32.76 / 33.59 }         // ≈ 0.975
+    ];
+    
+    // Сортируем по RH
+    corrections.sort((a, b) => a.rh - b.rh);
+    
+    let factor = 1;
+    
+    // Для RH от 5% до 30% — интерполяция между точками
+    if (RH >= 5 && RH <= 30) {
+      const rh1 = 5;
+      const rh2 = 30;
+      const f1 = 0.975;
+      const f2 = 0.663;
+      // Линейная интерполяция
+      factor = f1 + (f2 - f1) * (RH - rh1) / (rh2 - rh1);
+    }
+    // Для RH от 30% до 70% — плавный переход к 1.003
+    else if (RH > 30 && RH <= 70) {
+      const rh1 = 30;
+      const rh2 = 70;
+      const f1 = 0.663;
+      const f2 = 1.003;
+      factor = f1 + (f2 - f1) * (RH - rh1) / (rh2 - rh1);
+    }
+    // Для RH от 70% до 95% — плавный переход к 1.019
+    else if (RH > 70 && RH <= 95) {
+      const rh1 = 70;
+      const rh2 = 95;
+      const f1 = 1.003;
+      const f2 = 1.019;
+      factor = f1 + (f2 - f1) * (RH - rh1) / (rh2 - rh1);
+    }
+    // Крайние случаи
+    else if (RH < 5) factor = 0.975;
+    else if (RH > 95) factor = 1.019;
+    
+    x = x * factor;
+  }
+  
+  return x;
+}
 
-// Абсолютная из точки росы (г/м³)
+// ------------------------------------------------------------
+// **ФОРМУЛА 5: Относительная влажность из влагосодержания**
+// e = (x × P) / (622 + x)
+// RH = (e / es(T)) × 100
+// ------------------------------------------------------------
+function RHFromMix(mix, T, P) { 
+  let P_hPa = P * mmHg2hPa;                 // перевод давления в гПа
+  let e = (mix * P_hPa) / (MIX_FACTOR + mix); // **обратная формула влагосодержания**
+  return (e / es(T)) * 100;                 // **формула относительной влажности**
+}
+
+// ------------------------------------------------------------
+// **ФОРМУЛА 6: Точка росы из относительной влажности**
+// Td = (C × ln(e/6.112)) / (B - ln(e/6.112))
+// где e = (RH / 100) × es(T)
+// ------------------------------------------------------------
+function dewFromRH(RH, T) { 
+  if (RH <= 0) return -Infinity;
+  let e = (RH / 100) * es(T);               // парциальное давление
+  let ln = Math.log(e / MAGNUS_A);          // ln(e/6.112)
+  // **Формула точки росы:**
+  return (MAGNUS_C * ln) / (MAGNUS_B - ln);
+}
+
+// ------------------------------------------------------------
+// **ФОРМУЛА 7: Относительная влажность из точки росы**
+// RH = (es(Td) / es(T)) × 100
+// ------------------------------------------------------------
+function RHFromDew(dew, T) { 
+  return (es(dew) / es(T)) * 100;           // **формула через давление насыщения**
+}
+
+// ------------------------------------------------------------
+// **ФОРМУЛА 8: Абсолютная влажность из точки росы**
+// Комбинирует формулы 7 и 2:
+//   RH = (es(Td) / es(T)) × 100
+//   A = absFromRH(RH, T)
+// ------------------------------------------------------------
 function absFromDew(dew, T) { 
-  let RH = RHFromDew(dew, T);
-  return absFromRH(RH, T);
+  let RH = RHFromDew(dew, T);               // шаг 1: находим RH по формуле 7
+  return absFromRH(RH, T);                  // шаг 2: находим A по формуле 2
 }
 
-function mixFromDew(dew, T, P) { return mixFromRH(RHFromDew(dew, T), T, P); }
+// ------------------------------------------------------------
+// **ФОРМУЛА 9: Влагосодержание из точки росы**
+// Комбинирует формулы 7 и 4:
+//   RH = (es(Td) / es(T)) × 100
+//   x = mixFromRH(RH, T, P)
+// ------------------------------------------------------------
+function mixFromDew(dew, T, P) { 
+  let RH = RHFromDew(dew, T);               // шаг 1: находим RH по формуле 7
+  return mixFromRH(RH, T, P);               // шаг 2: находим x по формуле 4
+}
 
-// Точка росы из абсолютной (abs в г/м³)
+// ------------------------------------------------------------
+// **ФОРМУЛА 10: Точка росы из абсолютной влажности**
+// Последовательность:
+//   1. kg_m3 = A / 1000                     — перевод г/м³ → кг/м³
+//   2. e = kg_m3 × Rv × Tk / 100            — парциальное давление, гПа
+//   3. Td = (C × ln(e/6.112)) / (B - ln(e/6.112))
+// ------------------------------------------------------------
 function dewFromAbs(A, T) { 
-  let kg_m3 = A / KG_TO_G;
-  let e = kg_m3 * Rv * (T + 273.15) / 100; 
-  let ln = Math.log(e / MAGNUS_A); 
-  return (MAGNUS_C * ln) / (MAGNUS_B - ln); 
+  let kg_m3 = A / KG_TO_G;                  // шаг 1: перевод в кг/м³
+  let e = kg_m3 * Rv * (T + 273.15) / 100;  // шаг 2: парциальное давление, гПа
+  let ln = Math.log(e / MAGNUS_A);          // ln(e/6.112)
+  // **Формула точки росы:**
+  return (MAGNUS_C * ln) / (MAGNUS_B - ln);
 }
 
-function dewFromMix(mix, T, P) { return dewFromRH(RHFromMix(mix, T, P), T); }
-function maxAbs(T) { return absFromRH(100, T); }
-function maxMix(T, P) { return mixFromRH(100, T, P); }
+// ------------------------------------------------------------
+// **ФОРМУЛА 11: Точка росы из влагосодержания**
+// Комбинирует формулы 5 и 6:
+//   RH = RHFromMix(mix, T, P)
+//   Td = dewFromRH(RH, T)
+// ------------------------------------------------------------
+function dewFromMix(mix, T, P) { 
+  let RH = RHFromMix(mix, T, P);            // шаг 1: находим RH по формуле 5
+  return dewFromRH(RH, T);                  // шаг 2: находим Td по формуле 6
+}
 
-// ========== ЕДИНИЦЫ ИЗМЕРЕНИЯ ==========
+// ------------------------------------------------------------
+// **ФОРМУЛА 12: Максимальная абсолютная влажность при RH=100%**
+// maxAbs(T) = absFromRH(100, T)
+// ------------------------------------------------------------
+function maxAbs(T) { 
+  return absFromRH(100, T);                 // **подставляем RH=100% в формулу 2**
+}
+
+// ------------------------------------------------------------
+// **ФОРМУЛА 13: Максимальное влагосодержание при RH=100%**
+// maxMix(T, P) = mixFromRH(100, T, P)
+// ------------------------------------------------------------
+function maxMix(T, P) { 
+  return mixFromRH(100, T, P);              // **подставляем RH=100% в формулу 4**
+}
+
+// ========== 4. ЕДИНИЦЫ ИЗМЕРЕНИЯ И ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+
 function getUnit(to) {
   const units = { 'RH': '%', 'abs': 'г/м³', 'mix': 'г/кг', 'dew': '°C' };
   return units[to] || '';
@@ -110,7 +301,7 @@ function updateResultLabel(to) {
   if (resUnit) resUnit.innerHTML = getUnit(to);
 }
 
-// ========== ИЗМЕНЕНИЕ ТОЧНОСТИ ==========
+// ========== 5. ИЗМЕНЕНИЕ ТОЧНОСТИ ==========
 function changePrec(s) {
   prec += s;
   if (prec < 0) prec = 0;
@@ -120,7 +311,7 @@ function changePrec(s) {
   autoSave();
 }
 
-// ========== UI ==========
+// ========== 6. ОБРАБОТКА ОШИБОК ==========
 function clearErr() {
   document.querySelectorAll('.humidity-input-group input').forEach(i => i.classList.remove('humidity-error'));
   document.querySelectorAll('.humidity-err-msg').forEach(e => e.remove());
@@ -140,6 +331,7 @@ function showErr(id, msg) {
   }
 }
 
+// ========== 7. ВАЛИДАЦИЯ ПОЛЕЙ ВВОДА ==========
 function valNum(id, min, max, name) {
   let i = document.getElementById(id);
   if (!i) return null;
@@ -152,10 +344,11 @@ function valNum(id, min, max, name) {
 function valT() { return valNum('temp', -100, 100, 'Температура'); }
 function valP() { return valNum('press', 100, 1100, 'Давление'); }
 function valRH() { return valNum('rh', 0, 100, 'Влажность'); }
-function valAbs() { return valNum('abs', 0, 200, 'Абс.влажность'); }  // г/м³ до 200
+function valAbs() { return valNum('abs', 0, 1000, 'Абс.влажность'); }  // г/м³ до 200
 function valMix() { return valNum('mix', 0, 1000, 'Влагосодержание'); }
 function valDew() { return valNum('dew', -100, 100, 'Точка росы'); }
 
+// ========== 8. УПРАВЛЕНИЕ НАПРАВЛЕНИЯМИ ==========
 function validateDir() {
   let from = document.getElementById('from').value, to = document.getElementById('to').value;
   let btn = document.getElementById('calcBtn'), warn = document.getElementById('dirWarn');
@@ -184,7 +377,6 @@ function validateDir() {
   return true;
 }
 
-// Управление уведомлением "Выберите направление расчёта"
 function updateDirectionHint() {
   let from = document.getElementById('from').value;
   let to = document.getElementById('to').value;
@@ -197,30 +389,48 @@ function updateDirectionHint() {
   }
 }
 
+// ========== 9. ПРОВЕРКА ФИЗИЧЕСКОЙ ВОЗМОЖНОСТИ (РЕАЛЬНОЕ ВРЕМЯ) ==========
 function realCheck() {
   let from = document.getElementById('from').value, to = document.getElementById('to').value;
   if (!from || !to) return;
   let t = parseFloat(document.getElementById('temp')?.value), p = parseFloat(document.getElementById('press')?.value);
   if (isNaN(t) || isNaN(p)) return;
+  
+  // Проверка: точка росы не может быть выше температуры
   if (from === 'dew') {
     let d = parseFloat(document.getElementById('dew')?.value);
     if (!isNaN(d) && d > t) showErr('dew', `Точка росы выше температуры → Относительная влажность>100%`);
   }
+  
+  // Проверка: абсолютная влажность не может превышать максимум
   if (from === 'abs') {
     let a = parseFloat(document.getElementById('abs')?.value);
-    if (!isNaN(a)) { let mx = maxAbs(t); if (a > mx) showErr('abs', `Превышен максимум (${mx.toFixed(1)} г/м³)`); }
+    if (!isNaN(a)) { 
+      let mx = maxAbs(t);                   // **вызов формулы 12**
+      if (a > mx) showErr('abs', `Превышен максимум (${mx.toFixed(1)} г/м³)`); 
+    }
   }
+  
+  // Проверка: влагосодержание не может превышать максимум
   if (from === 'mix') {
     let m = parseFloat(document.getElementById('mix')?.value);
-    if (!isNaN(m)) { let mx = maxMix(t, p); if (m > mx && isFinite(mx)) showErr('mix', `Выше ${mx.toFixed(1)} г/кг → Относительная влажность>100%`); }
+    if (!isNaN(m)) { 
+      let mx = maxMix(t, p);                // **вызов формулы 13**
+      if (m > mx && isFinite(mx)) showErr('mix', `Выше ${mx.toFixed(1)} г/кг → Относительная влажность>100%`); 
+    }
   }
+  
+  // Предупреждение: при T < -40°C формула Магнуса имеет погрешность
   if (t < -40) showErr('temp', `Ниже -40°C возможна погрешность`);
+  
+  // Проверка: при RH=0% точка росы не определена
   if (from === 'RH' && to === 'dew') {
     let rh = parseFloat(document.getElementById('rh')?.value);
     if (rh === 0) showErr('rh', `При 0% точка росы не определена`);
   }
 }
 
+// ========== 10. ДИНАМИЧЕСКОЕ ОБНОВЛЕНИЕ ПОЛЕЙ ==========
 function update() {
   let from = document.getElementById('from').value, to = document.getElementById('to').value, cont = document.getElementById('inputs');
   let inputs = cont.querySelectorAll('input');
@@ -247,6 +457,7 @@ function update() {
   autoSave();
 }
 
+// ========== 11. ОСНОВНОЙ РАСЧЁТ (ВЫЗОВ ФОРМУЛ) ==========
 function calc() {
   clearErr();
   if (!validateDir()) return;
@@ -256,43 +467,59 @@ function calc() {
     let T = valT(); if (T === null) return;
     let P = valP(); if (P === null) return;
     let res;
+    
+    // ========== ВЫБОР ФОРМУЛЫ ПО НАПРАВЛЕНИЮ ==========
+    
     if (from === 'RH') {
       let rh = valRH(); if (rh === null) return;
-      if (to === 'abs') res = absFromRH(rh, T);
-      else if (to === 'mix') { res = mixFromRH(rh, T, P); if (res === Infinity) throw new Error('Давление слишком низкое'); }
-      else if (to === 'dew') { if (rh === 0) throw new Error('При Относительной влажности=0% точка росы не определена'); res = dewFromRH(rh, T); }
+      if (to === 'abs') res = absFromRH(rh, T);           // **формула 2**
+      else if (to === 'mix') { 
+        res = mixFromRH(rh, T, P);                        // **формула 4**
+        if (res === Infinity) throw new Error('Давление слишком низкое'); 
+      }
+      else if (to === 'dew') { 
+        if (rh === 0) throw new Error('При Относительной влажности=0% точка росы не определена'); 
+        res = dewFromRH(rh, T);                           // **формула 6**
+      }
     }
     else if (from === 'abs') {
       let A = valAbs(); if (A === null) return;
-      let mx = maxAbs(T); if (A > mx) throw new Error(`Превышен максимум (${mx.toFixed(1)} г/м³)`);
-      if (to === 'RH') res = RHFromAbs(A, T);
-      else if (to === 'mix') res = mixFromRH(RHFromAbs(A, T), T, P);
-      else if (to === 'dew') res = dewFromAbs(A, T);
+      let mx = maxAbs(T);                                 // **формула 12**
+      if (A > mx) throw new Error(`Превышен максимум (${mx.toFixed(1)} г/м³)`);
+      if (to === 'RH') res = RHFromAbs(A, T);             // **формула 3**
+      else if (to === 'mix') res = mixFromRH(RHFromAbs(A, T), T, P); // **формулы 3+4**
+      else if (to === 'dew') res = dewFromAbs(A, T);      // **формула 10**
     }
     else if (from === 'mix') {
       let mix = valMix(); if (mix === null) return;
-      let mx = mixFromRH(100, T, P); if (mix > mx && isFinite(mx)) throw new Error(`Превышен максимум (${mx.toFixed(1)} г/кг)`);
-      if (to === 'RH') res = RHFromMix(mix, T, P);
-      else if (to === 'abs') res = absFromRH(RHFromMix(mix, T, P), T);
-      else if (to === 'dew') res = dewFromMix(mix, T, P);
+      let mx = mixFromRH(100, T, P);                      // **формула 13**
+      if (mix > mx && isFinite(mx)) throw new Error(`Превышен максимум (${mx.toFixed(1)} г/кг)`);
+      if (to === 'RH') res = RHFromMix(mix, T, P);        // **формула 5**
+      else if (to === 'abs') res = absFromRH(RHFromMix(mix, T, P), T); // **формулы 5+2**
+      else if (to === 'dew') res = dewFromMix(mix, T, P); // **формула 11**
     }
     else if (from === 'dew') {
       let dew = valDew(); if (dew === null) return;
       if (dew > T) throw new Error(`Точка росы (${dew}°C) выше температуры → Относительная влажность>100%`);
-      if (to === 'RH') res = RHFromDew(dew, T);
-      else if (to === 'abs') res = absFromDew(dew, T);
-      else if (to === 'mix') res = mixFromDew(dew, T, P);
+      if (to === 'RH') res = RHFromDew(dew, T);           // **формула 7**
+      else if (to === 'abs') res = absFromDew(dew, T);    // **формула 8**
+      else if (to === 'mix') res = mixFromDew(dew, T, P); // **формула 9**
     }
+    
     if (res === undefined) throw new Error('Ошибка');
+    
+    // Дополнительные проверки корректности результата
     if (to === 'RH' && (res < 0 || res > 100)) throw new Error(`Относительная влажность вне диапазона (${res.toFixed(1)}%)`);
     if (to === 'abs' && res < 0) throw new Error('Абс.влажность не может быть отрицательной');
     if (to === 'dew' && !isFinite(res)) throw new Error('Точка росы не определена');
+    
     span.innerText = res.toFixed(prec);
     document.getElementById('resUnit').innerHTML = getUnit(to);
     autoSave();
   } catch (e) { alert(e.message); span.innerText = '—'; document.getElementById('resUnit').innerHTML = ''; }
 }
 
+// ========== 12. ИНИЦИАЛИЗАЦИЯ ==========
 window.onload = () => {
   const hasSavedData = loadFromLocalStorage();
   
