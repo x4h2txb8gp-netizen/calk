@@ -325,6 +325,20 @@ function maxMix(T, P) {
   return mixFromRH(100, T, P);              // **подставляем RH=100% в формулу 4**
 }
 
+
+// ============================================================
+// ПРЯМОЙ РАСЧЁТ: Абсолютная влажность → Влагосодержание
+// Без промежуточного пересчёта через RH и без поправок
+// ============================================================
+function mixFromAbs(A, T, P) {
+  // Парциальное давление из абсолютной влажности (г/м³ → гПа)
+  let e = A * (T + 273.15) / 216.7;   // e в гПа
+  let P_hPa = P * kPa2hPa;
+  if (P_hPa <= e) return Infinity;
+  return MIX_FACTOR * e / (P_hPa - e);
+}
+
+
 // ========== 4. ЕДИНИЦЫ ИЗМЕРЕНИЯ И ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
 
 function getUnit(to) {
@@ -540,7 +554,7 @@ function calc() {
       let mx = maxAbs(T);                                 // **формула 12**
       if (A > mx) throw new Error(`Превышен максимум (${mx.toFixed(1)} г/м³)`);
       if (to === 'RH') res = RHFromAbs(A, T);             // **формула 3**
-      else if (to === 'mix') res = mixFromRH(RHFromAbs(A, T), T, P); // **формулы 3+4**
+     else if (to === 'mix') res = mixFromAbs(A, T, P);
       else if (to === 'dew') res = dewFromAbs(A, T);      // **формула 10**
     }
     else if (from === 'mix') {
